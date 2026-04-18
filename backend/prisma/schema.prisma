@@ -1,0 +1,79 @@
+// Prisma schema for SORT v2 - RBAC Authentication
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+  MRF
+}
+
+enum ReportStatus {
+  PENDING
+  VERIFIED
+  DISMISSED
+  DISPATCHED
+  COLLECTED
+  RESOLVED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  role      Role     @default(STUDENT)
+  
+  // Profile info
+  firstName  String?
+  lastName   String?
+  email      String?  @unique
+  
+  // Student-specific fields
+  studentId  String?  @unique
+  course     String?
+  section    String?
+  department String?
+  
+  // Gamification
+  points     Int      @default(0)
+  reports    Int      @default(0)
+  
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  binReports Report[]
+
+  @@map("users")
+}
+
+model Report {
+  id          String       @id @default(cuid())
+  location    String
+  notes       String?
+  photoUrl    String?
+  urgency     String       @default("normal")
+  wasteType   String       @default("general")
+  status      ReportStatus @default(PENDING)
+  
+  // User relation
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Timestamps
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("reports")
+  @@index([userId])
+  @@index([status])
+}

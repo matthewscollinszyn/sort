@@ -1,0 +1,164 @@
+/* ============================================
+   EcoLedger – Tailwind v4 Theme & Global Styles
+   ============================================ */
+
+@import "tailwindcss";
+
+/* ── Custom Theme ───────────────────────────── */
+@theme {
+  /* Brand palette */
+  --color-eco-green: #10B981;
+  --color-eco-green-light: #D1FAE5;
+  --color-eco-green-dark: #059669;
+  --color-eco-slate: #F8FAFC;
+  --color-eco-card: #FFFFFF;
+  --color-eco-text: #1E293B;
+  --color-eco-muted: #64748B;
+  --color-eco-border: #E2E8F0;
+  --color-eco-danger: #EF4444;
+  --color-eco-warning: #F59E0B;
+  --color-eco-info: #3B82F6;
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-nav: 0 -1px 8px rgba(0, 0, 0, 0.06);
+
+  /* Border-radius – Soft UI / FoodPanda style */
+  --radius-soft: 1.25rem;
+  --radius-pill: 9999px;
+
+  /* Spacing for bottom nav safe-area */
+  --spacing-bottom-nav: 5rem;
+
+  /* Font */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* ── Base resets ────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Light mode (default) */
+html.light body {
+  @apply bg-eco-slate text-eco-text;
+}
+
+/* Dark mode */
+html.dark body {
+  @apply bg-slate-950 text-white;
+}
+
+body {
+  @apply font-sans antialiased;
+  margin: 0;
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+#root {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Prevent iOS input zoom (font-size < 16px = zoom) ─── */
+@media (max-width: 640px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* ── Touch-friendly tap targets ─────────────── */
+@media (pointer: coarse) {
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* Exceptions for small inline elements */
+  .eco-btn-ghost, [class*="text-\\[10px\\]"] {
+    min-height: auto;
+    min-width: auto;
+  }
+}
+
+/* ── Safe-area padding for notched phones ───── */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ── Reusable card ──────────────────────────── */
+.eco-card {
+  @apply bg-eco-card rounded-[var(--radius-soft)] p-5;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.2s ease;
+}
+.eco-card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* ── Pill button (shared base via grouped selector) ── */
+.eco-btn,
+.eco-btn-primary,
+.eco-btn-outline,
+.eco-btn-ghost,
+.eco-btn-danger {
+  @apply inline-flex items-center justify-center gap-2
+         rounded-[var(--radius-pill)] px-5 py-2.5
+         text-sm font-semibold transition-all duration-200
+         focus:outline-none focus:ring-2 focus:ring-eco-green/40 focus:ring-offset-2;
+}
+.eco-btn-primary {
+  @apply bg-eco-green text-white hover:bg-eco-green-dark active:scale-[0.97];
+}
+.eco-btn-outline {
+  @apply border border-eco-green text-eco-green hover:bg-eco-green-light active:scale-[0.97];
+}
+.eco-btn-ghost {
+  @apply text-eco-muted hover:bg-slate-100 active:scale-[0.97];
+}
+.eco-btn-danger {
+  @apply bg-eco-danger text-white hover:bg-red-600 active:scale-[0.97];
+}
+
+/* ── Pulsing map pin ────────────────────────── */
+@keyframes ping-slow {
+  0%   { transform: scale(1);   opacity: 0.8; }
+  70%  { transform: scale(2.2); opacity: 0; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+.pulse-pin::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  background: inherit;
+}
+
+/* ── Bottom sheet backdrop ──────────────────── */
+.backdrop-blur-sheet {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ── Scrollbar styling ──────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-eco-border rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-eco-muted;
+}

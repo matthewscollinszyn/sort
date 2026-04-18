@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SMART OPERATIONAL RECOVERY AND TRACKING — 10-Week Project Gantt Chart</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+    <!-- ===== HEADER ===== -->
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">📊</div>
+            <div>
+                <h1>SMART OPERATIONAL RECOVERY AND TRACKING — Project Gantt Chart</h1>
+                <p class="subtitle">10-Week Development Plan</p>
+            </div>
+        </div>
+        <div class="header-right">
+            <button id="toggleCritical" class="btn btn-critical" title="Toggle Critical Path">
+                <span class="btn-icon">⚡</span> Critical Path
+            </button>
+            <button id="toggleView" class="btn btn-view" title="Toggle Compact/Full View">
+                <span class="btn-icon">📐</span> <span id="viewLabel">Compact</span>
+            </button>
+            <button id="toggleTheme" class="btn btn-theme" title="Toggle Dark/Light Mode">
+                <span class="btn-icon">🌙</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ===== PROJECT INFO CARDS ===== -->
+    <section class="info-section">
+        <div class="info-cards">
+            <!-- Objectives -->
+            <div class="info-card" id="cardObjectives">
+                <div class="card-header" data-target="objectivesBody">
+                    <h3>🎯 Project Objectives</h3>
+                    <span class="toggle-icon">▾</span>
+                </div>
+                <div class="card-body" id="objectivesBody">
+                    <ul>
+                        <li>Build a fully functional campus waste management and asset reporting web application within
+                            10 weeks.</li>
+                        <li>Deliver role-based dashboards for Students, Teachers, Admin, and MRF Staff with real-time
+                            report tracking.</li>
+                        <li>Implement a secure authentication system with JWT-based session management and role-based
+                            access control.</li>
+                        <li>Design and deploy a PostgreSQL database with Prisma ORM supporting Users, Reports, and Audit
+                            Logs.</li>
+                        <li>Achieve a complete report lifecycle workflow: PENDING → VERIFIED → DISPATCHED → COLLECTED →
+                            RESOLVED.</li>
+                        <li>Create responsive, mobile-first UI using React 19, TailwindCSS 4, and Framer Motion
+                            animations.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Success Criteria -->
+            <div class="info-card" id="cardSuccess">
+                <div class="card-header" data-target="successBody">
+                    <h3>✅ Success Criteria</h3>
+                    <span class="toggle-icon">▾</span>
+                </div>
+                <div class="card-body" id="successBody">
+                    <ul>
+                        <li><strong>Timely Completion:</strong> All features delivered by Week 10 with no critical
+                            blockers remaining.</li>
+                        <li><strong>Functional Quality:</strong> All 4 role dashboards fully operational with complete
+                            CRUD operations.</li>
+                        <li><strong>Authentication:</strong> Secure sign-in/sign-out with proper JWT token validation
+                            and role-based routing.</li>
+                        <li><strong>Data Integrity:</strong> Report lifecycle transitions are validated — no invalid
+                            state changes allowed.</li>
+                        <li><strong>Responsive Design:</strong> Application works on desktop (≥1024px), tablet (768px),
+                            and mobile (≤480px).</li>
+                        <li><strong>Budget Compliance:</strong> Total expenses stay within fundraised budget; no
+                            financial losses.</li>
+                        <li><strong>Documentation:</strong> Complete technical docs, user guide, and project report
+                            submitted on time.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Team & Resources -->
+            <div class="info-card" id="cardTeam">
+                <div class="card-header" data-target="teamBody">
+                    <h3>👥 Team &amp; Resource Assignment</h3>
+                    <span class="toggle-icon">▾</span>
+                </div>
+                <div class="card-body" id="teamBody">
+                    <div class="team-grid">
+                        <div class="team-member pm">
+                            <div class="member-role">Project Manager</div>
+                            <div class="member-name">Anessa Julia Malabago</div>
+                            <div class="member-tasks">Planning, scheduling, resource allocation, stakeholder
+                                communication, risk management, documentation oversight, final report compilation</div>
+                        </div>
+                        <div class="team-member dev">
+                            <div class="member-role">Programmer</div>
+                            <div class="member-name">Althea Nacion</div>
+                            <div class="member-tasks">Frontend architecture (React/Vite), backend API (Express/Prisma),
+                                database design, authentication system, core feature development, deployment</div>
+                        </div>
+                        <div class="team-member jr">
+                            <div class="member-role">Junior Developer</div>
+                            <div class="member-name">Eva Jane Dolar</div>
+                            <div class="member-tasks">UI components, dashboard pages, responsive styling, map
+                                integration, form validation, mock data, testing support</div>
+                        </div>
+                        <div class="team-member editor">
+                            <div class="member-role">Technical Editor</div>
+                            <div class="member-name">Princess Henson</div>
+                            <div class="member-tasks">Code review, documentation, user manual, test case writing, QA
+                                testing, presentation preparation, final proofreading</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cost Plan -->
+            <div class="info-card" id="cardCost">
+                <div class="card-header" data-target="costBody">
+                    <h3>💰 Cost Plan &amp; Fundraising Strategy</h3>
+                    <span class="toggle-icon">▾</span>
+                </div>
+                <div class="card-body" id="costBody">
+                    <div class="cost-tables">
+                        <div class="cost-group">
+                            <h4>Expense Breakdown</h4>
+                            <table class="cost-table">
+                                <thead>
+                                    <tr>
+                                        <th>Item</th>
+                                        <th>Cost (₱)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Domain &amp; Hosting (Vercel + Railway)</td>
+                                        <td>₱0 (Free tier)</td>
+                                    </tr>
+                                    <tr>
+                                        <td>PostgreSQL Database (Neon/Supabase free)</td>
+                                        <td>₱0 (Free tier)</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Development Tools (VS Code, Git, Figma)</td>
+                                        <td>₱0 (Free)</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Internet Allowance (10 weeks × 4 members)</td>
+                                        <td>₱2,000</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Printing &amp; Documentation</td>
+                                        <td>₱800</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Presentation Materials</td>
+                                        <td>₱500</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Transportation / Meetings</td>
+                                        <td>₱700</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Contingency Fund (10%)</td>
+                                        <td>₱400</td>
+                                    </tr>
+                                    <tr class="cost-total">
+                                        <td><strong>Total Estimated Expenses</strong></td>
+                                        <td><strong>₱4,400</strong></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="cost-group">
+                            <h4>Fundraising Strategy</h4>
+                            <table class="cost-table">
+                                <thead>
+                                    <tr>
+                                        <th>Source</th>
+                                        <th>Amount (₱)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Team Member Contributions (₱300 × 4)</td>
+                                        <td>₱1,200</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Bake Sale / Food Stall Fundraiser</td>
+                                        <td>₱2,000</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Online Commissioning / Services</td>
+                                        <td>₱800</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Sponsorship / Department Support</td>
+                                        <td>₱500</td>
+                                    </tr>
+                                    <tr class="cost-total">
+                                        <td><strong>Total Fundraised</strong></td>
+                                        <td><strong>₱4,500</strong></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p class="cost-note">✅ <strong>Net Balance: +₱100</strong> — No financial loss. Buffer
+                                available for unexpected costs.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== LEGEND ===== -->
+    <section class="legend-section">
+        <div class="legend">
+            <span class="legend-title">Legend:</span>
+            <span class="legend-item"><span class="legend-color" style="background:#3b82f6"></span> Planning &amp;
+                Research</span>
+            <span class="legend-item"><span class="legend-color" style="background:#8b5cf6"></span> Design &amp;
+                Architecture</span>
+            <span class="legend-item"><span class="legend-color" style="background:#10b981"></span> Backend
+                Development</span>
+            <span class="legend-item"><span class="legend-color" style="background:#f59e0b"></span> Frontend
+                Development</span>
+            <span class="legend-item"><span class="legend-color" style="background:#ef4444"></span> Testing &amp;
+                QA</span>
+            <span class="legend-item"><span class="legend-color" style="background:#ec4899"></span> Deployment &amp;
+                Docs</span>
+            <span class="legend-item"><span class="legend-color critical-legend" style="background:transparent"></span>
+                Critical Path</span>
+            <span class="legend-item"><span class="legend-color milestone-legend">◆</span> Milestone</span>
+        </div>
+    </section>
+
+    <!-- ===== GANTT CHART ===== -->
+    <section class="gantt-section">
+        <div class="gantt-container" id="ganttContainer">
+            <!-- Left: Task list -->
+            <div class="gantt-sidebar" id="ganttSidebar">
+                <div class="sidebar-header">
+                    <div class="sh-task">Task</div>
+                    <div class="sh-assignee">Assigned To</div>
+                    <div class="sh-start">Start</div>
+                    <div class="sh-end">End</div>
+                    <div class="sh-duration">Duration</div>
+                </div>
+                <div class="sidebar-body" id="sidebarBody"></div>
+            </div>
+            <!-- Right: Timeline -->
+            <div class="gantt-timeline" id="ganttTimeline">
+                <div class="timeline-header" id="timelineHeader"></div>
+                <div class="timeline-body" id="timelineBody"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== PROGRESS SUMMARY ===== -->
+    <section class="progress-section">
+        <div class="progress-card">
+            <h3>📈 Overall Progress</h3>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar">
+                    <span class="progress-text" id="progressText">0%</span>
+                </div>
+            </div>
+            <div class="progress-stats" id="progressStats"></div>
+        </div>
+    </section>
+
+    <!-- ===== TOOLTIP ===== -->
+    <div class="tooltip" id="tooltip"></div>
+
+    <!-- Scripts -->
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
