@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SORT v2 - Data Flow Diagram (Level 0 & Level 1)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .diagram-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .diagram-section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.8rem;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .diagram-section p {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        svg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .legend {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-box {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+        }
+
+        .entity {
+            background: #90EE90;
+            border: 2px solid #228B22;
+        }
+
+        .process {
+            background: #87CEEB;
+            border: 2px solid #4682B4;
+        }
+
+        .datastore {
+            background: #FFD700;
+            border: 2px solid #DAA520;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>SORT v2 Data Flow Diagram</h1>
+
+        <!-- Level 0 - Context Diagram -->
+        <div class="diagram-section">
+            <h2>Level 0 - Context Diagram</h2>
+            <p>High-level view of the SORT system showing external entities and their interaction with the system.</p>
+
+            <svg viewBox="0 0 1200 700" xmlns="http://www.w3.org/2000/svg">
+                <!-- External Entities -->
+                <rect x="50" y="250" width="150" height="200" fill="#90EE90" stroke="#228B22" stroke-width="3" rx="8" />
+                <text x="125" y="280" text-anchor="middle" font-size="18" font-weight="bold">Student/Teacher</text>
+                <text x="125" y="320" text-anchor="middle" font-size="14">• Submit Reports</text>
+                <text x="125" y="345" text-anchor="middle" font-size="14">• View Points</text>
+                <text x="125" y="370" text-anchor="middle" font-size="14">• View Certificates</text>
+                <text x="125" y="395" text-anchor="middle" font-size="14">• Read News</text>
+
+                <rect x="50" y="50" width="150" height="120" fill="#90EE90" stroke="#228B22" stroke-width="3" rx="8" />
+                <text x="125" y="80" text-anchor="middle" font-size="18" font-weight="bold">Admin</text>
+                <text x="125" y="110" text-anchor="middle" font-size="14">• Verify Reports</text>
+                <text x="125" y="135" text-anchor="middle" font-size="14">• Dispatch Staff</text>
+                <text x="125" y="160" text-anchor="middle" font-size="14">• Publish News</text>
+
+                <rect x="1000" y="250" width="150" height="200" fill="#90EE90" stroke="#228B22" stroke-width="3"
+                    rx="8" />
+                <text x="1075" y="280" text-anchor="middle" font-size="18" font-weight="bold">MRF Staff</text>
+                <text x="1075" y="320" text-anchor="middle" font-size="14">• View Tasks</text>
+                <text x="1075" y="345" text-anchor="middle" font-size="14">• Log Weight</text>
+                <text x="1075" y="370" text-anchor="middle" font-size="14">• Mark Complete</text>
+                <text x="1075" y="395" text-anchor="middle" font-size="14">• Update Status</text>
+
+                <!-- Central System Process -->
+                <circle cx="600" cy="350" r="180" fill="#87CEEB" stroke="#4682B4" stroke-width="4" />
+                <text x="600" y="330" text-anchor="middle" font-size="24" font-weight="bold">SORT v2</text>
+                <text x="600" y="360" text-anchor="middle" font-size="18">Material Recovery</text>
+                <text x="600" y="385" text-anchor="middle" font-size="18">Tracking System</text>
+
+                <!-- Data Flows -->
+                <!-- Student/Teacher to System -->
+                <defs>
+                    <marker id="arrowblue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"
+                        markerUnits="strokeWidth">
+                        <path d="M0,0 L0,6 L9,3 z" fill="#4682B4" />
+                    </marker>
+                </defs>
+
+                <line x1="200" y1="340" x2="420" y2="350" stroke="#4682B4" stroke-width="2"
+                    marker-end="url(#arrowblue)" />
+                <text x="280" y="335" font-size="12" fill="#333">Report Submission</text>
+                <text x="280" y="350" font-size="12" fill="#333">(Location, Photo, Notes)</text>
+
+                <line x1="450" y1="420" x2="220" y2="430" stroke="#4682B4" stroke-width="2"
+                    marker-end="url(#arrowblue)" />
+                <text x="300" y="440" font-size="12" fill="#333">Points & Certificates</text>
+
+                <line x1="470" y1="250" x2="240" y2="180" stroke="#4682B4" stroke-width="2"
+                    marker-end="url(#arrowblue)" />
+                <text x="320" y="210" font-size="12" fill="#333">Campus News</text>
+
+                <!-- Admin to System -->
+                <line x1="200" y1="120" x2="480" y2="230" stroke="#4682B4" stroke-width="2"
+                    marker-end="url(#arrowblue)" />
+                <text x="280" y="160" font-size="12" fill="#333">Verify/Dismiss Reports</text>
+                <text x="280" y="175" font-size="12" fill="#333">Staff Assignment</text>
+
+                <line x1="500" y1="210" x2="220" y2="130" stroke="#4682B4" stroke-width="2"
+                    marker-end="url(#arrowblue)" />
+                <text x="300" y="150" font-size="12" fill="#333">Report List & Analytics</text>
+
+                <!-- System to MRF -->
+                <line x1="780" y1="350" x2="1000" y2="350" stroke="#4682B4" stroke-width="2"
+                    marker-end="url(#arrowblue)" />
+                <text x="850" y="335" font-size="12" fill="#333">Assigned Tasks</text>
+
+                <line x1="980" y1="380" x2="750" y2="390" stroke="#4682B4" stroke-width="2"
+                    marker-end="url(#arrowblue)" />
+                <text x="820" y="400" font-size="12" fill="#333">Collection Updates</text>
+                <text x="820" y="415" font-size="12" fill="#333">(Weight, Status)</text>
+            </svg>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-box entity"></div>
+                    <span><strong>External Entity</strong> - Users/Actors</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box process"></div>
+                    <span><strong>Process</strong> - System Function</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Level 1 - Main Processes -->
+        <div class="diagram-section">
+            <h2>Level 1 - Main System Processes</h2>
+            <p>Detailed view showing the main processes, data stores, and data flows within SORT v2.</p>
+
+            <svg viewBox="0 0 1200 900" xmlns="http://www.w3.org/2000/svg">
+                <!-- Define arrow markers -->
+                <defs>
+                    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="3" orient="auto"
+                        markerUnits="strokeWidth">
+                        <path d="M0,0 L0,6 L9,3 z" fill="#2c3e50" />
+                    </marker>
+                </defs>
+
+                <!-- External Entities (Rounded Rectangles) -->
+                <rect x="50" y="50" width="150" height="90" fill="#b8e6b8" stroke="#228B22" stroke-width="3" rx="15" />
+                <text x="125" y="100" text-anchor="middle" font-size="18" font-weight="bold">Student/Teacher</text>
+
+                <rect x="1000" y="50" width="150" height="90" fill="#b8e6b8" stroke="#228B22" stroke-width="3"
+                    rx="15" />
+                <text x="1075" y="95" text-anchor="middle" font-size="18" font-weight="bold">Admin</text>
+
+                <rect x="1000" y="380" width="150" height="90" fill="#b8e6b8" stroke="#228B22" stroke-width="3"
+                    rx="15" />
+                <text x="1075" y="430" text-anchor="middle" font-size="18" font-weight="bold">MRF Staff</text>
+
+                <!-- Process Boxes (Rounded Rectangles with Green) -->
+                <!-- Process 1.1 -->
+                <rect x="350" y="50" width="180" height="90" fill="#a8d5a8" stroke="#228B22" stroke-width="3" rx="12" />
+                <text x="440" y="80" text-anchor="middle" font-size="16" font-weight="bold">1.1</text>
+                <text x="440" y="100" text-anchor="middle" font-size="14">Submit & Manage</text>
+                <text x="440" y="118" text-anchor="middle" font-size="14">Reports</text>
+
+                <!-- Process 1.2 -->
+                <rect x="650" y="50" width="180" height="90" fill="#a8d5a8" stroke="#228B22" stroke-width="3" rx="12" />
+                <text x="740" y="80" text-anchor="middle" font-size="16" font-weight="bold">1.2</text>
+                <text x="740" y="100" text-anchor="middle" font-size="14">Validate & Process</text>
+                <text x="740" y="118" text-anchor="middle" font-size="14">Reports</text>
+
+                <!-- Process 1.3 -->
+                <rect x="650" y="220" width="180" height="90" fill="#a8d5a8" stroke="#228B22" stroke-width="3"
+                    rx="12" />
+                <text x="740" y="250" text-anchor="middle" font-size="16" font-weight="bold">1.3</text>
+                <text x="740" y="270" text-anchor="middle" font-size="14">Dispatch & Assign</text>
+                <text x="740" y="288" text-anchor="middle" font-size="14">Staff</text>
+
+                <!-- Process 1.4 -->
+                <rect x="650" y="380" width="180" height="90" fill="#a8d5a8" stroke="#228B22" stroke-width="3"
+                    rx="12" />
+                <text x="740" y="410" text-anchor="middle" font-size="16" font-weight="bold">1.4</text>
+                <text x="740" y="430" text-anchor="middle" font-size="14">Log Collection &</text>
+                <text x="740" y="448" text-anchor="middle" font-size="14">Complete Task</text>
+
+                <!-- Process 1.5 -->
+                <rect x="350" y="540" width="180" height="90" fill="#a8d5a8" stroke="#228B22" stroke-width="3"
+                    rx="12" />
+                <text x="440" y="570" text-anchor="middle" font-size="16" font-weight="bold">1.5</text>
+                <text x="440" y="590" text-anchor="middle" font-size="14">Award Points &</text>
+                <text x="440" y="608" text-anchor="middle" font-size="14">Generate Stats</text>
+
+                <!-- Process 1.6 -->
+                <rect x="650" y="540" width="180" height="90" fill="#a8d5a8" stroke="#228B22" stroke-width="3"
+                    rx="12" />
+                <text x="740" y="570" text-anchor="middle" font-size="16" font-weight="bold">1.6</text>
+                <text x="740" y="590" text-anchor="middle" font-size="14">Manage Campus</text>
+                <text x="740" y="608" text-anchor="middle" font-size="14">News</text>
+
+                <!-- Data Stores (Open-ended rectangles - traditional DFD style) -->
+                <!-- D1: Reports DB -->
+                <line x1="350" y1="270" x2="530" y2="270" stroke="#2c3e50" stroke-width="3" />
+                <line x1="350" y1="270" x2="350" y2="320" stroke="#2c3e50" stroke-width="3" />
+                <line x1="350" y1="320" x2="530" y2="320" stroke="#2c3e50" stroke-width="3" />
+                <text x="360" y="290" font-size="14" font-weight="bold">D1: Reports</text>
+                <text x="360" y="308" font-size="12">(PostgreSQL DB)</text>
+
+                <!-- D2: Users DB -->
+                <line x1="50" y1="430" x2="230" y2="430" stroke="#2c3e50" stroke-width="3" />
+                <line x1="50" y1="430" x2="50" y2="480" stroke="#2c3e50" stroke-width="3" />
+                <line x1="50" y1="480" x2="230" y2="480" stroke="#2c3e50" stroke-width="3" />
+                <text x="60" y="450" font-size="14" font-weight="bold">D2: Users</text>
+                <text x="60" y="468" font-size="12">(Points & Profiles)</text>
+
+                <!-- D3: Campus News -->
+                <line x1="350" y1="750" x2="530" y2="750" stroke="#2c3e50" stroke-width="3" />
+                <line x1="350" y1="750" x2="350" y2="800" stroke="#2c3e50" stroke-width="3" />
+                <line x1="350" y1="800" x2="530" y2="800" stroke="#2c3e50" stroke-width="3" />
+                <text x="360" y="770" font-size="14" font-weight="bold">D3: Campus News</text>
+                <text x="360" y="788" font-size="12">(Announcements)</text>
+
+                <!-- Data Flows with Labels -->
+
+                <!-- Student to 1.1 -->
+                <line x1="200" y1="95" x2="350" y2="95" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="245" y="85" font-size="12" text-anchor="middle">Report Details</text>
+
+                <!-- 1.1 to Reports DB -->
+                <line x1="440" y1="140" x2="440" y2="270" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="450" y="200" font-size="12">Store Report</text>
+
+                <!-- Reports DB to 1.1 -->
+                <line x1="410" y1="270" x2="410" y2="140" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="420" y="200" font-size="12">Report List</text>
+
+                <!-- 1.1 to 1.2 -->
+                <line x1="530" y1="95" x2="650" y2="95" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="580" y="85" font-size="12" text-anchor="middle">Submit</text>
+
+                <!-- Admin to 1.2 -->
+                <line x1="1000" y1="95" x2="830" y2="95" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="900" y="85" font-size="12" text-anchor="middle">Verify/Dismiss</text>
+
+                <!-- 1.2 to 1.3 -->
+                <line x1="740" y1="140" x2="740" y2="220" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="750" y="180" font-size="12">Verified Report</text>
+
+                <!-- Admin to 1.3 -->
+                <line x1="1000" y1="140" x2="830" y2="240" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="880" y="180" font-size="12">Staff Assignment</text>
+
+                <!-- 1.3 to Reports DB -->
+                <line x1="650" y1="265" x2="530" y2="295" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="580" y="270" font-size="12">Assign Staff</text>
+
+                <!-- Reports DB to 1.4 -->
+                <line x1="530" y1="320" x2="650" y2="425" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="570" y="370" font-size="12">Task Details</text>
+
+                <!-- MRF to 1.4 -->
+                <line x1="1000" y1="425" x2="830" y2="425" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="900" y="415" font-size="12" text-anchor="middle">Weight & Status</text>
+
+                <!-- 1.4 to Reports DB -->
+                <line x1="650" y1="410" x2="530" y2="310" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="570" y="350" font-size="12">Update Status</text>
+
+                <!-- 1.4 to 1.5 -->
+                <line x1="650" y1="460" x2="440" y2="540" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="520" y="495" font-size="12">Completed</text>
+
+                <!-- 1.5 to Users DB -->
+                <line x1="350" y1="585" x2="230" y2="480" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="270" y="525" font-size="12">Award Points</text>
+
+                <!-- Users DB to Student -->
+                <line x1="140" y1="430" x2="140" y2="140" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="150" y="285" font-size="12">Points & Stats</text>
+
+                <!-- Admin to 1.6 -->
+                <line x1="1000" y1="140" x2="830" y2="560" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="880" y="340" font-size="12">Publish News</text>
+
+                <!-- 1.6 to Campus News -->
+                <line x1="740" y1="630" x2="440" y2="750" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="580" y="685" font-size="12">Store News</text>
+
+                <!-- Campus News to Student -->
+                <line x1="350" y1="775" x2="125" y2="140" stroke="#2c3e50" stroke-width="2" marker-end="url(#arrow)" />
+                <text x="210" y="450" font-size="12">News Updates</text>
+
+            </svg>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-box entity"></div>
+                    <span><strong>External Entity</strong> - System Actors</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box process"></div>
+                    <span><strong>Process</strong> - Numbered Activities</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-box datastore"></div>
+                    <span><strong>Data Store</strong> - Database Tables</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Flow -->
+        <div class="diagram-section">
+            <h2>Report Status Flow</h2>
+            <p>Sequential status transitions throughout the report lifecycle.</p>
+
+            <svg viewBox="0 0 1200 200" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <marker id="arrowgreen" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                        <path d="M0,0 L0,6 L9,3 z" fill="#228B22" />
+                    </marker>
+                </defs>
+
+                <!-- Status boxes -->
+                <rect x="20" y="60" width="120" height="80" fill="#FFE4B5" stroke="#DAA520" stroke-width="2" rx="8" />
+                <text x="80" y="90" text-anchor="middle" font-size="14" font-weight="bold">PENDING</text>
+                <text x="80" y="110" text-anchor="middle" font-size="11">Initial State</text>
+
+                <rect x="200" y="60" width="120" height="80" fill="#98FB98" stroke="#228B22" stroke-width="2" rx="8" />
+                <text x="260" y="90" text-anchor="middle" font-size="14" font-weight="bold">VERIFIED</text>
+                <text x="260" y="110" text-anchor="middle" font-size="11">Admin Approved</text>
+
+                <rect x="380" y="60" width="120" height="80" fill="#87CEEB" stroke="#4682B4" stroke-width="2" rx="8" />
+                <text x="440" y="90" text-anchor="middle" font-size="14" font-weight="bold">DISPATCHED</text>
+                <text x="440" y="110" text-anchor="middle" font-size="11">Staff Assigned</text>
+
+                <rect x="560" y="60" width="120" height="80" fill="#DDA0DD" stroke="#9370DB" stroke-width="2" rx="8" />
+                <text x="620" y="90" text-anchor="middle" font-size="14" font-weight="bold">IN_PROGRESS</text>
+                <text x="620" y="110" text-anchor="middle" font-size="11">Collecting</text>
+
+                <rect x="740" y="60" width="120" height="80" fill="#90EE90" stroke="#228B22" stroke-width="2" rx="8" />
+                <text x="800" y="90" text-anchor="middle" font-size="14" font-weight="bold">COMPLETED</text>
+                <text x="800" y="110" text-anchor="middle" font-size="11">Done</text>
+
+                <!-- Dismissed path -->
+                <rect x="200" y="10" width="120" height="30" fill="#FFB6C1" stroke="#DC143C" stroke-width="2" rx="6" />
+                <text x="260" y="30" text-anchor="middle" font-size="12" font-weight="bold">DISMISSED</text>
+
+                <!-- Arrows -->
+                <line x1="140" y1="100" x2="200" y2="100" stroke="#228B22" stroke-width="3"
+                    marker-end="url(#arrowgreen)" />
+                <line x1="320" y1="100" x2="380" y2="100" stroke="#228B22" stroke-width="3"
+                    marker-end="url(#arrowgreen)" />
+                <line x1="500" y1="100" x2="560" y2="100" stroke="#228B22" stroke-width="3"
+                    marker-end="url(#arrowgreen)" />
+                <line x1="680" y1="100" x2="740" y2="100" stroke="#228B22" stroke-width="3"
+                    marker-end="url(#arrowgreen)" />
+
+                <!-- Dismissed arrow -->
+                <line x1="140" y1="70" x2="200" y2="30" stroke="#DC143C" stroke-width="2"
+                    marker-end="url(#arrowgreen)" />
+                <text x="155" y="45" font-size="10" fill="#DC143C">Invalid</text>
+            </svg>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -4,7 +4,7 @@
    Extended reporting: Waste, Furniture, Equipment, etc.
    ========================================================= */
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -17,12 +17,17 @@ import {
     MessageSquare, CircleDot, Loader2, Settings,
     Truck, Building2, FlaskConical, Landmark, Wrench,
     Armchair, Monitor, Lamp, Fan, Projector, Package,
-    GraduationCap, ClipboardList, FileText, RefreshCw
+    GraduationCap, ClipboardList, FileText, RefreshCw, Filter
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { leaderboard, impactStats, binReports, BIN_STATUS, ASSET_STATUS, ASSET_CATEGORIES, assetReports } from '../data/reportState';
 import api from '../services/api';
+import { useNotifications } from '../hooks/useNotifications';
+import NotificationPanel from '../components/NotificationPanel';
+import { useCampusNews, TAG_COLOR_MAP } from '../hooks/useCampusNews';
+import { useNewsNotifications } from '../hooks/useNewsNotifications';
+import { useAssetCategories, useItemPresets, useLocations, useUrgencyLevels, useAssetConditions } from '../hooks/useSettings';
 
 /* ── Animations ──────────────────────────────────────────── */
 const fadeUp = {
@@ -112,31 +117,50 @@ const statusBadge = {
 
 const assetStatusDot = {
     [ASSET_STATUS.REPORTED]: 'bg-amber-400',
-    [ASSET_STATUS.IN_REVIEW]: 'bg-blue-400',
+    [ASSET_STATUS.VERIFIED_ASSET]: 'bg-emerald-400',
+    [ASSET_STATUS.DISPATCHED]: 'bg-blue-400',
+    [ASSET_STATUS.IN_REVIEW]: 'bg-violet-400',
     [ASSET_STATUS.RECOVERED]: 'bg-eco-green',
     [ASSET_STATUS.DISPOSED]: 'bg-slate-400',
+    dismissed: 'bg-red-400',
 };
 
 const assetStatusBadge = {
     [ASSET_STATUS.REPORTED]: 'bg-amber-400/15 text-amber-400 border-amber-400/20',
-    [ASSET_STATUS.IN_REVIEW]: 'bg-blue-400/15 text-blue-400 border-blue-400/20',
-    [ASSET_STATUS.RECOVERED]: 'bg-emerald-400/15 text-emerald-400 border-emerald-400/20',
+    [ASSET_STATUS.VERIFIED_ASSET]: 'bg-emerald-400/15 text-emerald-400 border-emerald-400/20',
+    [ASSET_STATUS.DISPATCHED]: 'bg-blue-400/15 text-blue-400 border-blue-400/20',
+    [ASSET_STATUS.IN_REVIEW]: 'bg-violet-400/15 text-violet-400 border-violet-400/20',
+    [ASSET_STATUS.RECOVERED]: 'bg-eco-green/15 text-eco-green border-eco-green/20',
     [ASSET_STATUS.DISPOSED]: 'bg-slate-400/15 text-slate-400 border-slate-400/20',
+    dismissed: 'bg-red-400/15 text-red-400 border-red-400/20',
 };
 
-/* ── Campus bin locations ────────────────────────────────── */
-const campusBins = [
-    { id: 'LOC-01', name: 'Cafeteria – Block A', lat: 14.5995, lng: 120.9842, type: 'general', status: 'full' },
-    { id: 'LOC-02', name: 'Library Entrance', lat: 14.6001, lng: 120.985, type: 'recyclable', status: 'half' },
-    { id: 'LOC-03', name: 'Gym Hallway', lat: 14.5988, lng: 120.9835, type: 'general', status: 'empty' },
-    { id: 'LOC-04', name: 'Engineering Bldg – 2F', lat: 14.5992, lng: 120.9858, type: 'hazardous', status: 'full' },
-    { id: 'LOC-05', name: 'Parking Lot B', lat: 14.5978, lng: 120.9828, type: 'general', status: 'half' },
-    { id: 'LOC-06', name: 'Student Center', lat: 14.5999, lng: 120.9848, type: 'recyclable', status: 'empty' },
-    { id: 'LOC-07', name: 'Science Hall – 1F', lat: 14.5985, lng: 120.9855, type: 'general', status: 'full' },
-    { id: 'LOC-08', name: 'Admin Building Lobby', lat: 14.6005, lng: 120.9838, type: 'general', status: 'half' },
-    { id: 'LOC-09', name: 'Arts Building – GF', lat: 14.5990, lng: 120.9845, type: 'recyclable', status: 'empty' },
-    { id: 'LOC-10', name: 'Main Gate Area', lat: 14.5975, lng: 120.9840, type: 'general', status: 'half' },
+/* ── Campus bin locations ─ read live from admin map localStorage ── */
+const DEFAULT_BIN_LOCATIONS = [
+    { id: 'LOC-01', name: 'Cafeteria – Block A' },
+    { id: 'LOC-02', name: 'Library Entrance' },
+    { id: 'LOC-03', name: 'Gym Hallway' },
+    { id: 'LOC-04', name: 'Engineering Bldg – 2F' },
+    { id: 'LOC-05', name: 'Parking Lot B' },
+    { id: 'LOC-06', name: 'Student Center' },
+    { id: 'LOC-07', name: 'Science Hall – 1F' },
+    { id: 'LOC-08', name: 'Admin Building Lobby' },
+    { id: 'LOC-09', name: 'Arts Building – GF' },
+    { id: 'LOC-10', name: 'Main Gate Area' },
 ];
+
+function getLiveBins() {
+    try {
+        const stored = localStorage.getItem('campusBins');
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                return parsed.map(b => ({ id: b.id, name: b.name, status: b.fillStatus || 'empty' }));
+            }
+        }
+    } catch { /* ignore */ }
+    return DEFAULT_BIN_LOCATIONS.map(b => ({ ...b, status: 'empty' }));
+}
 
 /* ── Campus rooms/locations for asset reports ────────────── */
 const campusRooms = [
@@ -160,14 +184,44 @@ const binStatusLabel = {
     empty: { color: 'text-emerald-400', bg: 'bg-emerald-400/15', label: 'Available' },
 };
 
-/* ── Report Categories for Teachers ──────────────────────── */
-const REPORT_TYPES = [
-    { id: 'waste', label: 'Waste/Bin', icon: Trash2, color: 'from-red-500 to-orange-500', desc: 'Full bins, overflowing waste' },
-    { id: 'furniture', label: 'Furniture', icon: Armchair, color: 'from-blue-500 to-cyan-500', desc: 'Chairs, tables, desks, cabinets' },
-    { id: 'electronics', label: 'Electronics', icon: Monitor, color: 'from-violet-500 to-purple-500', desc: 'Computers, projectors, TVs' },
-    { id: 'fixtures', label: 'Fixtures', icon: Lamp, color: 'from-amber-500 to-yellow-500', desc: 'Lights, fans, AC units' },
-    { id: 'equipment', label: 'Equipment', icon: Wrench, color: 'from-eco-green to-teal-500', desc: 'Lab equipment, tools' },
-    { id: 'other', label: 'Other', icon: Package, color: 'from-slate-500 to-slate-600', desc: 'Misc items not listed above' },
+/* ── Icon and color mapping for asset categories ──────────── */
+const CATEGORY_DEFAULTS = {
+    waste: { icon: Trash2, color: 'from-red-500 to-orange-500', desc: 'Full bins, overflowing waste' },
+    furniture: { icon: Armchair, color: 'from-blue-500 to-cyan-500', desc: 'Chairs, tables, desks, cabinets' },
+    electronics: { icon: Monitor, color: 'from-violet-500 to-purple-500', desc: 'Computers, projectors, TVs' },
+    fixtures: { icon: Lamp, color: 'from-amber-500 to-yellow-500', desc: 'Lights, fans, AC units' },
+    equipment: { icon: Wrench, color: 'from-eco-green to-teal-500', desc: 'Lab equipment, tools' },
+    other: { icon: Package, color: 'from-slate-500 to-slate-600', desc: 'Misc items not listed above' },
+};
+
+/* ── Build report types from API categories ──────────────── */
+function buildReportTypes(apiCategories) {
+    const wasteType = { id: 'waste', label: 'Waste/Bin', ...CATEGORY_DEFAULTS.waste };
+
+    const assetTypes = apiCategories
+        .filter(cat => cat.enabled)
+        .map(cat => {
+            const defaults = CATEGORY_DEFAULTS[cat.name] || CATEGORY_DEFAULTS.other;
+            return {
+                id: cat.name,
+                label: cat.label,
+                icon: defaults.icon,
+                color: defaults.color,
+                desc: defaults.desc
+            };
+        });
+
+    return [wasteType, ...assetTypes];
+}
+
+/* ── Fallback report types (used when API fails) ──────────── */
+const DEFAULT_REPORT_TYPES = [
+    { id: 'waste', label: 'Waste/Bin', ...CATEGORY_DEFAULTS.waste },
+    { id: 'furniture', label: 'Furniture', ...CATEGORY_DEFAULTS.furniture },
+    { id: 'electronics', label: 'Electronics', ...CATEGORY_DEFAULTS.electronics },
+    { id: 'fixtures', label: 'Fixtures', ...CATEGORY_DEFAULTS.fixtures },
+    { id: 'equipment', label: 'Equipment', ...CATEGORY_DEFAULTS.equipment },
+    { id: 'other', label: 'Other', ...CATEGORY_DEFAULTS.other },
 ];
 
 /* ── Item presets for each category ──────────────────────── */
@@ -371,26 +425,18 @@ const quickActions = [
     { label: 'MRF Dashboard', desc: 'View all reports', icon: BarChart3, color: 'from-amber-500 to-orange-500', tab: 'home' },
 ];
 
-const campusUpdates = [
-    {
-        id: 1, tag: 'MRF Update', tagColor: 'bg-eco-green/15 text-eco-green', date: 'Feb 24, 2026',
-        title: 'Extended Collection Hours Campus-Wide',
-        desc: 'Starting March 1, MRF collection trucks will operate from 6 AM to 8 PM on weekdays.',
-        icon: Truck, iconBg: 'from-eco-green to-teal-500',
-    },
-    {
-        id: 2, tag: 'Assets', tagColor: 'bg-blue-400/15 text-blue-400', date: 'Feb 22, 2026',
-        title: 'Furniture Audit Scheduled',
-        desc: 'General Services will conduct a furniture audit next week. Please report damaged items.',
-        icon: Armchair, iconBg: 'from-blue-500 to-indigo-500',
-    },
-    {
-        id: 3, tag: 'Maintenance', tagColor: 'bg-amber-400/15 text-amber-400', date: 'Feb 20, 2026',
-        title: 'AC Maintenance Week',
-        desc: 'All AC units will undergo preventive maintenance March 5-12. Report any issues now.',
-        icon: Wrench, iconBg: 'from-amber-400 to-orange-500',
-    },
-];
+const TAG_ICON_MAP = {
+    'MRF Update': Truck,
+    'New Facility': Recycle,
+    'Achievement': TrendingUp,
+    'Event': Award,
+    'Program': Droplets,
+    'Research': FlaskConical,
+    'Maintenance': Wrench,
+    'Assets': Armchair,
+    'Announcement': Wrench,
+    'Update': Globe,
+};
 
 /* ═════════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -402,17 +448,45 @@ export default function TeacherLandingPage() {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState(tab || 'home');
     const [realReports, setRealReports] = useState([]);
+    const [realAssetReports, setRealAssetReports] = useState([]);
     const [reportsLoading, setReportsLoading] = useState(false);
+    const [notifOpen, setNotifOpen] = useState(false);
+
+    // Notifications
+    const { notifications, unreadCount, addNotification, markRead, markAllRead, clearAll } = useNotifications(user?.id);
+
+    // Load asset categories from API
+    const { categories: assetCategories, loading: categoriesLoading } = useAssetCategories();
+
+    // Load item presets from API
+    const { presets: allItemPresets, loading: presetsLoading } = useItemPresets();
+
+    // Load locations from API (for both bin and room locations)
+    const { locations: binLocationsData, loading: binLocationsLoading } = useLocations('BIN_LOCATION');
+    const { locations: roomLocationsData, loading: roomLocationsLoading } = useLocations('ROOM_LOCATION');
+
+    // Load urgency levels and asset conditions from API
+    const { urgencyLevels, loading: urgencyLevelsLoading } = useUrgencyLevels();
+    const { assetConditions, loading: assetConditionsLoading } = useAssetConditions();
+
+    // Build dynamic report types from API categories
+    const REPORT_TYPES = assetCategories.length > 0
+        ? buildReportTypes(assetCategories)
+        : DEFAULT_REPORT_TYPES;
+
+    // Track previous report statuses to detect changes
+    const prevReportStatusesRef = useRef({});
+    const prevAssetStatusesRef = useRef({});
+    const statusInitializedRef = useRef(false); // tracks if we loaded persisted statuses
 
     // Create user object from auth context
     const me = createUserFromAuth(user);
 
-    // Mock data for fallback (asset reports)
-    const mockBinReports = binReports.filter((r) => r.role === 'faculty');
-    const myAssetReports = assetReports.filter((r) => r.role === 'faculty');
+    // Asset reports: use real API data, fallback to empty
+    const myAssetReports = realAssetReports.length > 0 ? realAssetReports : [];
 
     // Use real reports if available, otherwise fallback to mock
-    const myBinReports = realReports.length > 0 ? realReports : mockBinReports;
+    const myBinReports = realReports.length > 0 ? realReports : [];
 
     // Fetch real reports from API
     const fetchReports = async () => {
@@ -422,8 +496,24 @@ export default function TeacherLandingPage() {
         try {
             const response = await api.getMyReports();
             if (response.success) {
+                // Split reports by type
+                const allReports = response.data.reports;
+                const wasteRaw = allReports.filter(r => r.type === 'WASTE' || !r.type);
+                const assetRaw = allReports.filter(r => r.type === 'ASSET');
+
+                // Map API asset statuses → ASSET_STATUS values
+                const apiAssetStatusMap = {
+                    pending: ASSET_STATUS.REPORTED,
+                    verified: ASSET_STATUS.VERIFIED_ASSET,
+                    dispatched: ASSET_STATUS.DISPATCHED,
+                    in_progress: ASSET_STATUS.IN_REVIEW,
+                    collected: ASSET_STATUS.RECOVERED,
+                    resolved: ASSET_STATUS.RECOVERED,
+                    dismissed: 'dismissed',
+                };
+
                 // Transform API reports to match the expected format
-                const transformed = response.data.reports.map(r => ({
+                const transformed = wasteRaw.map(r => ({
                     id: r.id,
                     location: r.location,
                     notes: r.notes || '',
@@ -435,7 +525,87 @@ export default function TeacherLandingPage() {
                     reportedBy: `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() || r.user.username,
                     role: 'faculty'
                 }));
+
+                const transformedAssets = assetRaw.map(r => ({
+                    id: r.id,
+                    item: r.wasteType || 'Asset',
+                    location: r.location,
+                    notes: r.notes || '',
+                    photoUrl: r.photoUrl,
+                    status: apiAssetStatusMap[r.status.toLowerCase()] || ASSET_STATUS.REPORTED,
+                    timestamp: r.createdAt,
+                    role: 'faculty',
+                }));
+
+                // On the very first fetch after login, load persisted statuses from
+                // localStorage so we can detect changes that happened while offline.
+                if (!statusInitializedRef.current) {
+                    statusInitializedRef.current = true;
+                    try {
+                        const storedBin = localStorage.getItem(`ecoledger_report_statuses_${user?.id}`);
+                        if (storedBin) prevReportStatusesRef.current = JSON.parse(storedBin);
+                        const storedAsset = localStorage.getItem(`ecoledger_asset_statuses_${user?.id}`);
+                        if (storedAsset) prevAssetStatusesRef.current = JSON.parse(storedAsset);
+                    } catch { /* ignore */ }
+                }
+
+                // Detect WASTE report status changes
+                transformed.forEach(report => {
+                    const prev = prevReportStatusesRef.current[report.id];
+                    if (prev && prev !== report.status) {
+                        const statusMessages = {
+                            verified: { title: 'Report Verified ✓', message: `Your report at "${report.location}" has been verified by admin.` },
+                            dispatched: { title: 'Staff Dispatched 🚛', message: `MRF staff is on the way to "${report.location}".` },
+                            in_progress: { title: 'In Progress', message: `Your report at "${report.location}" is now being handled.` },
+                            collected: { title: 'Collection Complete ✓', message: `Your report at "${report.location}" has been collected.` },
+                            resolved: { title: 'Report Resolved ✓', message: `Your report at "${report.location}" has been fully resolved.` },
+                            dismissed: { title: 'Report Dismissed', message: `Your report at "${report.location}" was dismissed by admin.` },
+                        };
+                        const msg = statusMessages[report.status];
+                        addNotification({
+                            type: 'report_status',
+                            title: msg?.title || `Report ${report.status}`,
+                            message: msg?.message || `Your report at "${report.location}" is now ${report.status}.`,
+                            reportId: report.id,
+                        });
+                    }
+                });
+
+                // Detect ASSET report status changes
+                transformedAssets.forEach(report => {
+                    const prev = prevAssetStatusesRef.current[report.id];
+                    if (prev && prev !== report.status) {
+                        const assetMessages = {
+                            [ASSET_STATUS.VERIFIED_ASSET]: { title: 'Asset Report Verified ✓', message: `Your asset report "${report.item}" at "${report.location}" has been verified.` },
+                            [ASSET_STATUS.DISPATCHED]: { title: 'MRF Staff Dispatched 🚛', message: `Staff has been dispatched to handle "${report.item}" at "${report.location}".` },
+                            [ASSET_STATUS.IN_REVIEW]: { title: 'Asset Under Review', message: `Your asset "${report.item}" at "${report.location}" is being reviewed on-site.` },
+                            [ASSET_STATUS.RECOVERED]: { title: 'Asset Recovered ✓', message: `Your asset report "${report.item}" has been recovered successfully.` },
+                            [ASSET_STATUS.DISPOSED]: { title: 'Asset Disposed', message: `The asset "${report.item}" at "${report.location}" has been disposed.` },
+                            dismissed: { title: 'Asset Report Dismissed', message: `Your report for "${report.item}" was dismissed by admin.` },
+                        };
+                        const msg = assetMessages[report.status];
+                        addNotification({
+                            type: 'report_status',
+                            title: msg?.title || `Asset ${report.status}`,
+                            message: msg?.message || `Your asset "${report.item}" status changed.`,
+                            reportId: report.id,
+                        });
+                    }
+                });
+
+                // Update tracked statuses and persist to localStorage
+                const binStatusMap = {};
+                transformed.forEach(r => { binStatusMap[r.id] = r.status; });
+                prevReportStatusesRef.current = binStatusMap;
+                try { localStorage.setItem(`ecoledger_report_statuses_${user?.id}`, JSON.stringify(binStatusMap)); } catch { /* ignore */ }
+
+                const assetStatusMap = {};
+                transformedAssets.forEach(r => { assetStatusMap[r.id] = r.status; });
+                prevAssetStatusesRef.current = assetStatusMap;
+                try { localStorage.setItem(`ecoledger_asset_statuses_${user?.id}`, JSON.stringify(assetStatusMap)); } catch { /* ignore */ }
+
                 setRealReports(transformed);
+                setRealAssetReports(transformedAssets);
             }
         } catch (err) {
             console.error('Failed to fetch reports:', err);
@@ -447,7 +617,43 @@ export default function TeacherLandingPage() {
 
     useEffect(() => {
         fetchReports();
-    }, [user, activeTab]);
+        // Poll every 5 seconds for near-realtime status updates
+        const interval = setInterval(fetchReports, 5000);
+        // Also re-fetch immediately when tab becomes visible again
+        const onVisible = () => { if (document.visibilityState === 'visible') fetchReports(); };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', onVisible);
+        };
+    }, [user]);
+
+    useEffect(() => {
+        if (!user?.id) return;
+
+        const eventSource = new EventSource(api.getReportsStreamUrl());
+        const handleRealtimeReport = (event) => {
+            try {
+                const payload = JSON.parse(event.data);
+                console.log('📡 Real-time event received:', payload);
+                // Refresh reports for all users to see real-time updates
+                fetchReports();
+            } catch (err) {
+                console.error('Failed to parse realtime report event:', err);
+            }
+        };
+
+        eventSource.addEventListener('report.created', handleRealtimeReport);
+        eventSource.addEventListener('report.updated', handleRealtimeReport);
+        eventSource.addEventListener('report.deleted', handleRealtimeReport);
+
+        return () => {
+            eventSource.removeEventListener('report.created', handleRealtimeReport);
+            eventSource.removeEventListener('report.updated', handleRealtimeReport);
+            eventSource.removeEventListener('report.deleted', handleRealtimeReport);
+            eventSource.close();
+        };
+    }, [user?.id]);
 
     useEffect(() => { if (tab && tab !== activeTab) setActiveTab(tab); }, [tab]);
 
@@ -516,11 +722,31 @@ export default function TeacherLandingPage() {
                         </button>
 
                         {/* Notifications */}
-                        <button className={`relative flex h-9 w-9 items-center justify-center rounded-xl border transition-colors ${theme === 'dark' ? 'border-white/10 bg-slate-800/40 text-slate-400 hover:text-white' : 'border-slate-300 bg-slate-100/40 text-slate-600 hover:text-slate-900'
-                            }`}>
-                            <Bell className="h-4 w-4" />
-                            <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-red-500" />
-                        </button>
+                        <div className="relative">
+                            <button
+                                onClick={() => setNotifOpen(p => !p)}
+                                className={`relative flex h-9 w-9 items-center justify-center rounded-xl border transition-colors ${theme === 'dark' ? 'border-white/10 bg-slate-800/40 text-slate-400 hover:text-white' : 'border-slate-300 bg-slate-100/40 text-slate-600 hover:text-slate-900'
+                                    }`}
+                                aria-label="Notifications"
+                            >
+                                <Bell className="h-4 w-4" />
+                                {unreadCount > 0 && (
+                                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+                                        {unreadCount > 9 ? '9+' : unreadCount}
+                                    </span>
+                                )}
+                            </button>
+                            <NotificationPanel
+                                open={notifOpen}
+                                onClose={() => setNotifOpen(false)}
+                                notifications={notifications}
+                                unreadCount={unreadCount}
+                                onMarkRead={markRead}
+                                onMarkAllRead={markAllRead}
+                                onClearAll={clearAll}
+                                theme={theme}
+                            />
+                        </div>
 
                         {/* User Avatar Menu */}
                         <UserMenu me={me} theme={theme} onSignOut={handleSignOut} />
@@ -568,8 +794,8 @@ export default function TeacherLandingPage() {
 
                     {/* ── Tab Content ────────────────────────── */}
                     <AnimatePresence mode="wait">
-                        {activeTab === 'home' && <HomeTab key="home" me={me} goTab={handleTab} pendingBinCount={pendingBinCount} pendingAssetCount={pendingAssetCount} myBinReports={myBinReports} myAssetReports={myAssetReports} />}
-                        {activeTab === 'report' && <ReportTab key="report" onReportSubmitted={fetchReports} />}
+                        {activeTab === 'home' && <HomeTab key="home" me={me} goTab={handleTab} pendingBinCount={pendingBinCount} pendingAssetCount={pendingAssetCount} myBinReports={myBinReports} myAssetReports={myAssetReports} addNotification={addNotification} userId={user?.id} />}
+                        {activeTab === 'report' && <ReportTab key="report" onReportSubmitted={fetchReports} reportTypes={REPORT_TYPES} itemPresets={allItemPresets} binLocations={binLocationsData} roomLocations={roomLocationsData} urgencyLevels={urgencyLevels} assetConditions={assetConditions} />}
                         {activeTab === 'map' && <MapTab key="map" />}
                         {activeTab === 'activity' && <ActivityTab key="activity" myBinReports={myBinReports} myAssetReports={myAssetReports} onRefresh={fetchReports} loading={reportsLoading} />}
                     </AnimatePresence>
@@ -615,8 +841,10 @@ export default function TeacherLandingPage() {
 /* ═══════════════════════════════════════════════════════════
    HOME TAB – Welcome hero, quick actions, stats, updates
    ═══════════════════════════════════════════════════════════ */
-function HomeTab({ me, goTab, pendingBinCount, pendingAssetCount, myBinReports, myAssetReports }) {
+function HomeTab({ me, goTab, pendingBinCount, pendingAssetCount, myBinReports, myAssetReports, addNotification, userId }) {
     const { theme } = useTheme();
+    const { news: campusUpdates } = useCampusNews(true); // defer load after main UI
+    useNewsNotifications(userId, campusUpdates, addNotification);
     return (
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
             className="space-y-8 sm:space-y-12 pb-20 lg:pb-0">
@@ -690,7 +918,10 @@ function HomeTab({ me, goTab, pendingBinCount, pendingAssetCount, myBinReports, 
                         { label: 'Pending', value: pendingBinCount + pendingAssetCount, icon: Clock, color: 'text-amber-400', bg: 'bg-amber-400/10' },
                         { label: 'Resolved', value: myAssetReports.filter(r => r.status === ASSET_STATUS.RECOVERED).length + myBinReports.filter(r => r.status === BIN_STATUS.RESOLVED).length, icon: CheckCircle2, color: 'text-eco-green', bg: 'bg-eco-green/10' },
                     ].map((s) => (
-                        <Card key={s.label} theme={theme} className="flex flex-col items-center text-center !p-4">
+                        <Card key={s.label} theme={theme}
+                            className="flex flex-col items-center text-center !p-4 cursor-pointer hover:shadow-md transition-all active:scale-[0.97]"
+                            onClick={() => goTab('activity')}
+                        >
                             <div className={`mb-2 flex h-10 w-10 items-center justify-center rounded-xl ${s.bg}`}>
                                 <s.icon className={`h-5 w-5 ${s.color}`} />
                             </div>
@@ -707,33 +938,49 @@ function HomeTab({ me, goTab, pendingBinCount, pendingAssetCount, myBinReports, 
                 <h2 className={`text-lg font-bold mb-4 flex items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                     <BookOpen className="h-5 w-5 text-blue-400" /> Campus Updates
                 </h2>
-                <motion.div variants={stagger} initial="hidden" animate="visible"
-                    className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {campusUpdates.map((item, i) => (
-                        <motion.article key={item.id} variants={fadeUp} custom={i}
-                            className={`group relative overflow-hidden rounded-2xl border backdrop-blur-sm p-5 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/5 ${theme === 'dark'
-                                ? 'border-white/5 bg-slate-900/60 hover:border-blue-500/20 hover:bg-slate-900/90'
-                                : 'border-slate-200 bg-white/60 hover:border-blue-500/30 hover:bg-white/90'
-                                }`}>
-                            <div className="relative">
-                                <div className="flex items-center justify-between mb-3">
-                                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${item.tagColor}`}>
-                                        {item.tag}
-                                    </span>
-                                    <span className={`flex items-center gap-1 text-[10px] ${theme === 'dark' ? 'text-slate-600' : 'text-slate-500'}`}>
-                                        <CalendarDays className="h-3 w-3" />
-                                        {item.date}
-                                    </span>
-                                </div>
-                                <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${item.iconBg} text-white shadow-lg transition-transform group-hover:scale-110`}>
-                                    <item.icon className="h-5 w-5" />
-                                </div>
-                                <h3 className={`mb-1.5 text-sm font-bold leading-snug ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{item.title}</h3>
-                                <p className={`text-xs leading-relaxed ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>{item.desc}</p>
-                            </div>
-                        </motion.article>
-                    ))}
-                </motion.div>
+                {campusUpdates.length === 0 ? (
+                    <Card theme={theme} className="text-center py-12">
+                        <BookOpen className={`h-12 w-12 mx-auto mb-3 ${theme === 'dark' ? 'text-slate-700' : 'text-slate-300'}`} />
+                        <p className={`text-sm font-medium ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>
+                            No campus updates yet
+                        </p>
+                        <p className={`text-xs mt-1 ${theme === 'dark' ? 'text-slate-600' : 'text-slate-400'}`}>
+                            Check back soon for updates and announcements
+                        </p>
+                    </Card>
+                ) : (
+                    <motion.div variants={stagger} initial="hidden" animate="visible"
+                        className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {campusUpdates.map((item, i) => {
+                            const tagStyle = (TAG_COLOR_MAP[item.tag] || { tagColor: 'bg-slate-100 text-slate-600', iconBg: 'from-slate-400 to-slate-500' });
+                            const IconComp = TAG_ICON_MAP[item.tag] || Globe;
+                            return (
+                                <motion.article key={item.id} variants={fadeUp} custom={i}
+                                    className={`group relative overflow-hidden rounded-2xl border backdrop-blur-sm p-5 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/5 ${theme === 'dark'
+                                        ? 'border-white/5 bg-slate-900/60 hover:border-blue-500/20 hover:bg-slate-900/90'
+                                        : 'border-slate-200 bg-white/60 hover:border-blue-500/30 hover:bg-white/90'
+                                        }`}>
+                                    <div className="relative">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${tagStyle.tagColor}`}>
+                                                {item.tag}
+                                            </span>
+                                            <span className={`flex items-center gap-1 text-[10px] ${theme === 'dark' ? 'text-slate-600' : 'text-slate-500'}`}>
+                                                <CalendarDays className="h-3 w-3" />
+                                                {item.date}
+                                            </span>
+                                        </div>
+                                        <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${tagStyle.iconBg} text-white shadow-lg transition-transform group-hover:scale-110`}>
+                                            <IconComp className="h-5 w-5" />
+                                        </div>
+                                        <h3 className={`mb-1.5 text-sm font-bold leading-snug ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{item.title}</h3>
+                                        <p className={`text-xs leading-relaxed ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'}`}>{item.desc}</p>
+                                    </div>
+                                </motion.article>
+                            );
+                        })}
+                    </motion.div>
+                )}
             </motion.section>
 
             {/* ─────── CAMPUS IMPACT BANNER ─────── */}
@@ -761,7 +1008,7 @@ function HomeTab({ me, goTab, pendingBinCount, pendingAssetCount, myBinReports, 
 /* ═══════════════════════════════════════════════════════════
    REPORT TAB – Multi-category reporting (Waste, Furniture, etc.)
    ═══════════════════════════════════════════════════════════ */
-function ReportTab({ onReportSubmitted }) {
+function ReportTab({ onReportSubmitted, reportTypes = DEFAULT_REPORT_TYPES, itemPresets = [], binLocations = [], roomLocations = [], urgencyLevels = [], assetConditions = [] }) {
     const { theme } = useTheme();
     const [reportType, setReportType] = useState(null);
     const [error, setError] = useState('');
@@ -779,8 +1026,38 @@ function ReportTab({ onReportSubmitted }) {
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
 
+    // Filter API presets by current report type (category name) - MUST be before any conditional returns
+    const presets = useMemo(() => {
+        if (!reportType) return [];
+        const filtered = (itemPresets || []).filter(p => {
+            // Match category name and ensure it's enabled
+            return p.category?.name === reportType && p.enabled !== false;
+        });
+
+        // Debug logging
+        if (reportType && reportType !== 'waste') {
+            console.log('🔍 Report Type:', reportType);
+            console.log('📦 All Item Presets:', itemPresets);
+            console.log('✅ Filtered Presets:', filtered);
+        }
+
+        return filtered;
+    }, [itemPresets, reportType]);
+
     const preview = photo ? URL.createObjectURL(photo) : null;
-    const locations = reportType === 'waste' ? campusBins : campusRooms;
+
+    // Get locations based on report type
+    const getLocations = () => {
+        if (reportType === 'waste') {
+            // For waste reports, use bin locations with status info
+            return binLocations;
+        } else {
+            // For asset reports, use room locations
+            return roomLocations;
+        }
+    };
+
+    const locations = getLocations();
     const filteredLocations = locations.filter(l =>
         l.name.toLowerCase().includes(locationSearch.toLowerCase())
     );
@@ -824,8 +1101,8 @@ function ReportTab({ onReportSubmitted }) {
         setError('');
 
         try {
-            // Create report data - all reports go to waste reports system
-            // Include item/category info in notes for non-waste reports
+            // Create report data - categorize by type
+            // 'waste' maps to WASTE type, others map to ASSET type
             const fullNotes = reportType === 'waste'
                 ? notes
                 : `[${reportType.toUpperCase()}] ${itemName}${notes ? ` - ${notes}` : ''}`;
@@ -834,7 +1111,8 @@ function ReportTab({ onReportSubmitted }) {
                 location,
                 notes: fullNotes,
                 urgency,
-                wasteType: 'general', // All teacher reports go to waste reports
+                // Pass the actual category - backend will determine WASTE vs ASSET based on this
+                wasteType: reportType === 'waste' ? 'general' : reportType,
                 photoUrl: photo ? 'photo-captured' : null
             };
 
@@ -917,7 +1195,7 @@ function ReportTab({ onReportSubmitted }) {
                 </Card>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-                    {REPORT_TYPES.map((type, i) => (
+                    {reportTypes.map((type, i) => (
                         <motion.button
                             key={type.id}
                             variants={fadeUp}
@@ -943,8 +1221,7 @@ function ReportTab({ onReportSubmitted }) {
         );
     }
 
-    const currentType = REPORT_TYPES.find(t => t.id === reportType);
-    const presets = ITEM_PRESETS[reportType] || [];
+    const currentType = reportTypes.find(t => t.id === reportType);
 
     return (
         <motion.form initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
@@ -976,10 +1253,10 @@ function ReportTab({ onReportSubmitted }) {
                     <span className="text-red-400">*</span>
                 </h4>
 
-                {/* Preset items */}
+                {/* Preset items - show all presets */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
-                    {presets.slice(0, 6).map((preset) => (
-                        <button key={preset.name} type="button"
+                    {presets.map((preset) => (
+                        <button key={preset.id || preset.name} type="button"
                             onClick={() => setItemName(preset.name)}
                             className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs sm:text-sm font-medium transition-all ${itemName === preset.name
                                 ? 'border-blue-500/40 bg-blue-500/10 text-blue-500'
@@ -1082,8 +1359,8 @@ function ReportTab({ onReportSubmitted }) {
                                     )}
                                     <span className={`flex-1 text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{loc.name}</span>
                                     {reportType === 'waste' && (
-                                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${binStatusLabel[loc.status].bg} ${binStatusLabel[loc.status].color}`}>
-                                            {binStatusLabel[loc.status].label}
+                                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${(binStatusLabel[loc.status] || binStatusLabel.empty).bg} ${(binStatusLabel[loc.status] || binStatusLabel.empty).color}`}>
+                                            {(binStatusLabel[loc.status] || binStatusLabel.empty).label}
                                         </span>
                                     )}
                                 </button>
@@ -1113,12 +1390,7 @@ function ReportTab({ onReportSubmitted }) {
                             <Shield className="h-4 w-4 text-slate-500" /> Condition
                         </h4>
                         <div className="space-y-1.5">
-                            {[
-                                { key: 'damaged', label: 'Damaged', desc: 'Broken but may be repairable' },
-                                { key: 'malfunctioning', label: 'Malfunctioning', desc: 'Not working properly' },
-                                { key: 'worn', label: 'Worn Out', desc: 'Heavy wear, needs replacement' },
-                                { key: 'missing', label: 'Missing Parts', desc: 'Incomplete, parts missing' },
-                            ].map((c) => (
+                            {(assetConditions || []).filter(c => c.enabled).map((c) => (
                                 <button key={c.key} type="button" onClick={() => setCondition(c.key)}
                                     className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left transition-all ${condition === c.key
                                         ? 'border-blue-500/40 bg-blue-500/10 text-blue-500'
@@ -1127,7 +1399,7 @@ function ReportTab({ onReportSubmitted }) {
                                     <CircleDot className={`h-3.5 w-3.5 shrink-0 ${condition === c.key ? '' : 'opacity-40'}`} />
                                     <div className="flex-1 min-w-0">
                                         <p className="text-xs font-medium">{c.label}</p>
-                                        <p className="text-[10px] opacity-70 truncate">{c.desc}</p>
+                                        <p className="text-[10px] opacity-70 truncate">{c.description}</p>
                                     </div>
                                 </button>
                             ))}
@@ -1139,23 +1411,22 @@ function ReportTab({ onReportSubmitted }) {
                             <AlertTriangle className="h-4 w-4 text-slate-500" /> Urgency Level
                         </h4>
                         <div className="space-y-1.5">
-                            {[
-                                { key: 'low', label: 'Low', desc: 'Can wait, not urgent', color: theme === 'dark' ? 'border-slate-600 bg-slate-800/60 text-slate-400' : 'border-slate-400 bg-slate-100 text-slate-500' },
-                                { key: 'normal', label: 'Normal', desc: 'Needs attention soon', color: 'border-amber-500/30 bg-amber-400/10 text-amber-400' },
-                                { key: 'high', label: 'Urgent', desc: 'Safety hazard / critical', color: 'border-red-500/30 bg-red-400/10 text-red-400' },
-                            ].map((u) => (
-                                <button key={u.key} type="button" onClick={() => setUrgency(u.key)}
-                                    className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left transition-all ${urgency === u.key
-                                        ? `${u.color} ring-2 ring-offset-1 ${theme === 'dark' ? 'ring-offset-slate-950' : 'ring-offset-white'} ring-blue-500/30`
-                                        : theme === 'dark' ? 'border-slate-700 text-slate-500 hover:border-slate-600' : 'border-slate-300 text-slate-500 hover:border-slate-400'
-                                        }`}>
-                                    <CircleDot className={`h-3.5 w-3.5 shrink-0 ${urgency === u.key ? '' : 'opacity-40'}`} />
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-medium">{u.label}</p>
-                                        <p className="text-[10px] opacity-70 truncate">{u.desc}</p>
-                                    </div>
-                                </button>
-                            ))}
+                            {(urgencyLevels || []).filter(u => u.enabled).map((u) => {
+                                const themeColor = theme === 'dark' ? 'border-slate-600 bg-slate-800/60 text-slate-400' : u.color || 'border-slate-400 bg-slate-100 text-slate-500';
+                                return (
+                                    <button key={u.key} type="button" onClick={() => setUrgency(u.key)}
+                                        className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left transition-all ${urgency === u.key
+                                            ? `${themeColor} ring-2 ring-offset-1 ${theme === 'dark' ? 'ring-offset-slate-950' : 'ring-offset-white'} ring-blue-500/30`
+                                            : theme === 'dark' ? 'border-slate-700 text-slate-500 hover:border-slate-600' : 'border-slate-300 text-slate-500 hover:border-slate-400'
+                                            }`}>
+                                        <CircleDot className={`h-3.5 w-3.5 shrink-0 ${urgency === u.key ? '' : 'opacity-40'}`} />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-medium">{u.label}</p>
+                                            <p className="text-[10px] opacity-70 truncate">{u.description}</p>
+                                        </div>
+                                    </button>
+                                );
+                            })}
                         </div>
                     </Card>
                 </div>
@@ -1238,12 +1509,71 @@ function MapTab() {
     const [selectedBin, setSelectedBin] = useState(null);
     const [filter, setFilter] = useState('all');
 
-    const filtered = filter === 'all' ? campusBins : campusBins.filter(b => b.status === filter);
+    const [liveBins, setLiveBins] = useState([]);
+    const [mapImage, setMapImage] = useState(null);
+    const [mapTransform] = useState({ zoom: 1, panX: 0, panY: 0 });
+    const [lastUpdated, setLastUpdated] = useState(null);
+
+    const loadMapData = async () => {
+        try {
+            const [locationsResult, statusesResult, mapResult] = await Promise.allSettled([
+                api.getLocations('BIN_LOCATION'),
+                api.getBinStatuses(),
+                api.getCampusMap(),
+            ]);
+
+            const locationsData = locationsResult.status === 'fulfilled' ? locationsResult.value : [];
+            const statusesResponse = statusesResult.status === 'fulfilled' ? statusesResult.value : null;
+            const mapResponse = mapResult.status === 'fulfilled' ? mapResult.value : null;
+
+            const statuses = statusesResponse?.data || [];
+            const statusMap = new Map(statuses.map(s => [Number(s.locationId), s.fillStatus]));
+
+            const bins = (Array.isArray(locationsData) ? locationsData : [])
+                .filter(l => l.type === 'BIN_LOCATION')
+                .map((loc, idx) => ({
+                    id: loc.id,
+                    name: loc.name,
+                    lat: loc.mapX ?? (10 + (idx % 4) * 22),
+                    lng: loc.mapY ?? (10 + Math.floor(idx / 4) * 25),
+                    type: 'general',
+                    status: statusMap.get(Number(loc.id)) || 'empty',
+                }));
+
+            setLiveBins(bins);
+
+            if (mapResponse?.data?.imageData) {
+                setMapImage(mapResponse.data.imageData);
+            }
+
+            setLastUpdated(new Date());
+        } catch (e) {
+            console.error('Failed to load map data:', e);
+            setLastUpdated(new Date());
+        }
+    };
+
+    useEffect(() => {
+        loadMapData();
+        const interval = setInterval(loadMapData, 10000);
+        const onVisible = () => {
+            if (document.visibilityState === 'visible') loadMapData();
+        };
+        window.addEventListener('focus', onVisible);
+        document.addEventListener('visibilitychange', onVisible);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('focus', onVisible);
+            document.removeEventListener('visibilitychange', onVisible);
+        };
+    }, []);
+
+    const filtered = filter === 'all' ? liveBins : liveBins.filter(b => b.status === filter);
     const counts = {
-        all: campusBins.length,
-        full: campusBins.filter(b => b.status === 'full').length,
-        half: campusBins.filter(b => b.status === 'half').length,
-        empty: campusBins.filter(b => b.status === 'empty').length,
+        all: liveBins.length,
+        full: liveBins.filter(b => b.status === 'full').length,
+        half: liveBins.filter(b => b.status === 'half').length,
+        empty: liveBins.filter(b => b.status === 'empty').length,
     };
 
     return (
@@ -1259,7 +1589,7 @@ function MapTab() {
                         <span className="flex items-center gap-1">
                             <span className="h-2 w-2 rounded-full bg-eco-green animate-pulse" /> Live
                         </span>
-                        <span>Updated just now</span>
+                        <span>{lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Loading...'}</span>
                     </div>
                 </div>
 
@@ -1285,26 +1615,31 @@ function MapTab() {
                 </div>
 
                 {/* Visual Map */}
-                <div className={`relative h-80 sm:h-96 rounded-2xl ${theme === 'dark' ? 'bg-gradient-to-br from-slate-800/80 via-slate-900/80 to-slate-800/80 border border-slate-700/50' : 'bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 border border-slate-300/50'} overflow-hidden`}>
-                    <div className="absolute inset-0 opacity-10"
-                        style={{ backgroundImage: 'linear-gradient(to right, #475569 1px, transparent 1px), linear-gradient(to bottom, #475569 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+                <div
+                    className={`relative h-80 sm:h-96 rounded-2xl ${!mapImage ? (theme === 'dark' ? 'bg-gradient-to-br from-slate-800/80 via-slate-900/80 to-slate-800/80 border border-slate-700/50' : 'bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 border border-slate-300/50') : 'border border-slate-300/50'} overflow-hidden`}
+                    style={mapImage ? {
+                        backgroundImage: `url(${mapImage})`,
+                        backgroundSize: `${mapTransform.zoom * 100}%`,
+                        backgroundPosition: `calc(50% + ${mapTransform.panX}px) calc(50% + ${mapTransform.panY}px)`,
+                    } : {}}
+                >
+                    {!mapImage && (
+                        <div className="absolute inset-0 opacity-10"
+                            style={{ backgroundImage: 'linear-gradient(to right, #475569 1px, transparent 1px), linear-gradient(to bottom, #475569 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+                    )}
                     <div className={`absolute top-3 left-3 flex items-center gap-2 rounded-lg ${theme === 'dark' ? 'bg-slate-900/80' : 'bg-white/80'} backdrop-blur-sm px-3 py-1.5 border ${theme === 'dark' ? 'border-white/5' : 'border-slate-200'}`}>
                         <span className={`text-xs font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>📍 Campus Map</span>
                     </div>
 
-                    {filtered.map((bin, i) => {
+                    {filtered.map((bin) => {
                         const pinColor = bin.status === 'full' ? 'bg-red-500' : bin.status === 'half' ? 'bg-amber-400' : 'bg-eco-green';
-                        const row = Math.floor(i / 3);
-                        const col = i % 3;
-                        const top = 12 + row * 22 + (col * 5);
-                        const left = 8 + col * 28 + (row * 8);
                         return (
                             <button key={bin.id} type="button" onClick={() => setSelectedBin(bin)}
-                                className="group absolute" style={{ top: `${Math.min(top, 82)}%`, left: `${Math.min(left, 85)}%` }}>
-                                <div className={`pulse-pin relative h-5 w-5 rounded-full ${pinColor} cursor-pointer border-2 border-slate-900 shadow-md transition-transform hover:scale-125`} />
+                                className="group absolute" style={{ left: `${bin.lat}%`, top: `${bin.lng}%`, transform: 'translate(-50%, -50%)' }}>
+                                <div className={`pulse-pin relative h-5 w-5 rounded-full ${pinColor} cursor-pointer border-2 ${theme === 'dark' ? 'border-slate-900' : 'border-white'} shadow-md transition-transform hover:scale-125`} />
                                 <div className={`pointer-events-none absolute -top-14 left-1/2 -translate-x-1/2 w-max max-w-[200px] rounded-xl ${theme === 'dark' ? 'bg-slate-800' : 'bg-white shadow-lg'} border ${theme === 'dark' ? 'border-white/10' : 'border-slate-200'} px-3 py-2 text-xs ${theme === 'dark' ? 'text-white' : 'text-slate-900'} opacity-0 shadow-xl transition-opacity group-hover:opacity-100 z-10`}>
                                     <p className="font-semibold">{bin.name}</p>
-                                    <p className={`capitalize ${binStatusLabel[bin.status].color}`}>{binStatusLabel[bin.status].label}</p>
+                                    <p className={`capitalize ${(binStatusLabel[bin.status] || binStatusLabel.empty).color}`}>{(binStatusLabel[bin.status] || binStatusLabel.empty).label}</p>
                                 </div>
                             </button>
                         );
@@ -1321,11 +1656,57 @@ function MapTab() {
                     <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Almost Full</span>
                     <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full bg-eco-green" /> Available</span>
                 </div>
+
+                {/* Selected Bin Detail */}
+                <AnimatePresence>
+                    {selectedBin && (
+                        <motion.div key="teacher-bin-detail" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="mt-4">
+                            <div className={`rounded-2xl border p-4 ${theme === 'dark' ? 'border-white/10 bg-slate-800/60' : 'border-emerald-200 bg-emerald-50/50'}`}>
+                                <div className="flex items-start justify-between mb-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${(binStatusLabel[selectedBin.status] || binStatusLabel.empty).bg}`}>
+                                            <Trash2 className={`h-5 w-5 ${(binStatusLabel[selectedBin.status] || binStatusLabel.empty).color}`} />
+                                        </div>
+                                        <div>
+                                            <h4 className={`font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{selectedBin.name}</h4>
+                                            <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${(binStatusLabel[selectedBin.status] || binStatusLabel.empty).bg} ${(binStatusLabel[selectedBin.status] || binStatusLabel.empty).color}`}>
+                                                {(binStatusLabel[selectedBin.status] || binStatusLabel.empty).label}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => setSelectedBin(null)} className={`${theme === 'dark' ? 'text-slate-600 hover:text-slate-400' : 'text-slate-400 hover:text-slate-600'} transition-colors`}>
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3 text-center">
+                                    {[
+                                        { label: 'Position X', value: `${selectedBin.lat.toFixed(1)}%` },
+                                        { label: 'Position Y', value: `${selectedBin.lng.toFixed(1)}%` },
+                                        { label: 'Type', value: selectedBin.type },
+                                    ].map((d) => (
+                                        <div key={d.label} className={`rounded-xl border p-3 ${theme === 'dark' ? 'bg-slate-900/60 border-white/5' : 'bg-white border-slate-200'}`}>
+                                            <p className={`text-sm font-bold truncate capitalize ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{d.value}</p>
+                                            <p className="text-xs text-slate-500">{d.label}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                                {selectedBin.status === 'full' && (
+                                    <div className="mt-3 flex items-center gap-2 rounded-xl bg-red-400/10 border border-red-400/15 px-4 py-3">
+                                        <AlertTriangle className="h-4 w-4 text-red-400 shrink-0" />
+                                        <p className="text-xs text-red-300">This bin is full and needs immediate attention.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </Card>
 
             {/* Bin List */}
             <Card theme={theme}>
-                <h4 className={`mb-3 text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>All Campus Bins</h4>
+                <h4 className={`mb-3 text-sm font-semibold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'} flex items-center gap-2`}>
+                    <Filter className="h-4 w-4 text-slate-500" /> All Campus Bins ({filtered.length})
+                </h4>
                 <div className="space-y-1">
                     {filtered.map((bin) => (
                         <button key={bin.id} type="button"
@@ -1336,8 +1717,8 @@ function MapTab() {
                                 }`}>
                             <span className={`h-2.5 w-2.5 rounded-full ${bin.status === 'full' ? 'bg-red-400' : bin.status === 'half' ? 'bg-amber-400' : 'bg-eco-green'}`} />
                             <span className={`flex-1 text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{bin.name}</span>
-                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${binStatusLabel[bin.status].bg} ${binStatusLabel[bin.status].color}`}>
-                                {binStatusLabel[bin.status].label}
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${(binStatusLabel[bin.status] || binStatusLabel.empty).bg} ${(binStatusLabel[bin.status] || binStatusLabel.empty).color}`}>
+                                {(binStatusLabel[bin.status] || binStatusLabel.empty).label}
                             </span>
                         </button>
                     ))}

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SORT v2 - Use Case Diagrams</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #f0f0f0;
+            margin-bottom: 40px;
+            font-size: 1.2rem;
+        }
+
+        .diagram-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .diagram-section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.8rem;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .diagram-section p {
+            color: #555;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        svg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .verification-box {
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 4px;
+        }
+
+        .verification-box h3 {
+            color: #2e7d32;
+            margin-bottom: 10px;
+        }
+
+        .verification-box ul {
+            margin-left: 20px;
+            color: #555;
+        }
+
+        .verification-box li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>SORT v2 Use Case Diagrams</h1>
+        <p class="subtitle">Smart Operational Recovery and Tracking System for School-Based Material Recovery Facility
+        </p>
+
+        <!-- Use Case 1: Student & Teacher Operations -->
+        <div class="diagram-section">
+            <h2>Use Case 1: Student & Teacher Operations</h2>
+            <p>Use cases available to Students and Teachers for submitting reports and viewing their contributions.</p>
+
+            <svg viewBox="0 0 1000 700" xmlns="http://www.w3.org/2000/svg">
+                <!-- System Boundary -->
+                <rect x="250" y="50" width="500" height="600" fill="none" stroke="#667eea" stroke-width="3" rx="20" />
+                <text x="500" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#667eea">
+                    SORT v2 System
+                </text>
+
+                <!-- Actors -->
+                <!-- Student -->
+                <g id="student">
+                    <circle cx="100" cy="250" r="25" fill="none" stroke="#333" stroke-width="2" />
+                    <line x1="100" y1="275" x2="100" y2="330" stroke="#333" stroke-width="2" />
+                    <line x1="100" y1="295" x2="70" y2="310" stroke="#333" stroke-width="2" />
+                    <line x1="100" y1="295" x2="130" y2="310" stroke="#333" stroke-width="2" />
+                    <line x1="100" y1="330" x2="70" y2="360" stroke="#333" stroke-width="2" />
+                    <line x1="100" y1="330" x2="130" y2="360" stroke="#333" stroke-width="2" />
+                    <text x="100" y="390" text-anchor="middle" font-size="16" font-weight="bold">Student</text>
+                </g>
+
+                <!-- Teacher -->
+                <g id="teacher">
+                    <circle cx="900" cy="250" r="25" fill="none" stroke="#333" stroke-width="2" />
+                    <line x1="900" y1="275" x2="900" y2="330" stroke="#333" stroke-width="2" />
+                    <line x1="900" y1="295" x2="870" y2="310" stroke="#333" stroke-width="2" />
+                    <line x1="900" y1="295" x2="930" y2="310" stroke="#333" stroke-width="2" />
+                    <line x1="900" y1="330" x2="870" y2="360" stroke="#333" stroke-width="2" />
+                    <line x1="900" y1="330" x2="930" y2="360" stroke="#333" stroke-width="2" />
+                    <text x="900" y="390" text-anchor="middle" font-size="16" font-weight="bold">Teacher</text>
+                </g>
+
+                <!-- Use Cases (Ovals) -->
+                <!-- Login/Authenticate -->
+                <ellipse cx="500" cy="130" rx="120" ry="50" fill="#90EE90" stroke="#228B22" stroke-width="2" />
+                <text x="500" y="130" text-anchor="middle" font-size="14" font-weight="bold">Login / Authenticate</text>
+
+                <!-- Submit Waste Report -->
+                <ellipse cx="500" cy="240" rx="130" ry="50" fill="#87CEEB" stroke="#4682B4" stroke-width="2" />
+                <text x="500" y="235" text-anchor="middle" font-size="14" font-weight="bold">Submit Waste Report</text>
+                <text x="500" y="255" text-anchor="middle" font-size="11">(General, Organic, etc.)</text>
+
+                <!-- Submit Asset Report -->
+                <ellipse cx="500" cy="350" rx="130" ry="50" fill="#87CEEB" stroke="#4682B4" stroke-width="2" />
+                <text x="500" y="345" text-anchor="middle" font-size="14" font-weight="bold">Submit Asset Report</text>
+                <text x="500" y="365" text-anchor="middle" font-size="11">(Furniture, Electronics)</text>
+
+                <!-- View Points -->
+                <ellipse cx="500" cy="460" rx="120" ry="50" fill="#FFD700" stroke="#DAA520" stroke-width="2" />
+                <text x="500" y="455" text-anchor="middle" font-size="14" font-weight="bold">View Points &</text>
+                <text x="500" y="475" text-anchor="middle" font-size="14" font-weight="bold">Leaderboard</text>
+
+                <!-- View Certificates -->
+                <ellipse cx="500" cy="570" rx="120" ry="50" fill="#FFD700" stroke="#DAA520" stroke-width="2" />
+                <text x="500" y="575" text-anchor="middle" font-size="14" font-weight="bold">View Certificates</text>
+
+                <!-- Connections -->
+                <line x1="130" y1="280" x2="380" y2="130" stroke="#333" stroke-width="2" />
+                <line x1="130" y1="280" x2="380" y2="240" stroke="#333" stroke-width="2" />
+                <line x1="130" y1="290" x2="380" y2="350" stroke="#333" stroke-width="2" />
+                <line x1="130" y1="310" x2="380" y2="460" stroke="#333" stroke-width="2" />
+                <line x1="130" y1="320" x2="390" y2="550" stroke="#333" stroke-width="2" />
+
+                <line x1="870" y1="280" x2="620" y2="130" stroke="#333" stroke-width="2" />
+                <line x1="870" y1="280" x2="620" y2="240" stroke="#333" stroke-width="2" />
+                <line x1="870" y1="290" x2="620" y2="350" stroke="#333" stroke-width="2" />
+                <line x1="870" y1="310" x2="620" y2="460" stroke="#333" stroke-width="2" />
+            </svg>
+
+            <div class="verification-box">
+                <h3>✅ Verification Status</h3>
+                <ul>
+                    <li><strong>Actors:</strong> STUDENT and TEACHER roles confirmed in schema</li>
+                    <li><strong>Report Types:</strong> WASTE and ASSET types implemented in Report model</li>
+                    <li><strong>Gamification:</strong> Points and reports count fields exist in User model</li>
+                    <li><strong>Authentication:</strong> JWT-based auth with signin endpoint verified</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Use Case 2: Admin & MRF Staff Operations -->
+        <div class="diagram-section">
+            <h2>Use Case 2: Admin & MRF Staff Operations</h2>
+            <p>Use cases for administrative functions and MRF staff operations for processing and tracking reports.</p>
+
+            <svg viewBox="0 0 1100 900" xmlns="http://www.w3.org/2000/svg">
+                <!-- System Boundary -->
+                <rect x="250" y="50" width="600" height="800" fill="none" stroke="#667eea" stroke-width="3" rx="20" />
+                <text x="550" y="35" text-anchor="middle" font-size="20" font-weight="bold" fill="#667eea">
+                    SORT v2 System
+                </text>
+
+                <!-- Actors -->
+                <!-- Admin -->
+                <g id="admin">
+                    <circle cx="80" cy="350" r="25" fill="none" stroke="#333" stroke-width="2" />
+                    <line x1="80" y1="375" x2="80" y2="430" stroke="#333" stroke-width="2" />
+                    <line x1="80" y1="395" x2="50" y2="410" stroke="#333" stroke-width="2" />
+                    <line x1="80" y1="395" x2="110" y2="410" stroke="#333" stroke-width="2" />
+                    <line x1="80" y1="430" x2="50" y2="460" stroke="#333" stroke-width="2" />
+                    <line x1="80" y1="430" x2="110" y2="460" stroke="#333" stroke-width="2" />
+                    <text x="80" y="490" text-anchor="middle" font-size="16" font-weight="bold">Admin</text>
+                </g>
+
+                <!-- MRF Staff -->
+                <g id="mrfstaff">
+                    <circle cx="1020" cy="450" r="25" fill="none" stroke="#333" stroke-width="2" />
+                    <line x1="1020" y1="475" x2="1020" y2="530" stroke="#333" stroke-width="2" />
+                    <line x1="1020" y1="495" x2="990" y2="510" stroke="#333" stroke-width="2" />
+                    <line x1="1020" y1="495" x2="1050" y2="510" stroke="#333" stroke-width="2" />
+                    <line x1="1020" y1="530" x2="990" y2="560" stroke="#333" stroke-width="2" />
+                    <line x1="1020" y1="530" x2="1050" y2="560" stroke="#333" stroke-width="2" />
+                    <text x="1020" y="590" text-anchor="middle" font-size="16" font-weight="bold">MRF Staff</text>
+                </g>
+
+                <!-- Use Cases (Ovals) -->
+                <!-- Login -->
+                <ellipse cx="550" cy="130" rx="120" ry="45" fill="#90EE90" stroke="#228B22" stroke-width="2" />
+                <text x="550" y="135" text-anchor="middle" font-size="14" font-weight="bold">Login / Authenticate</text>
+
+                <!-- Validate & Confirm Report -->
+                <ellipse cx="450" cy="240" rx="140" ry="50" fill="#87CEEB" stroke="#4682B4" stroke-width="2" />
+                <text x="450" y="235" text-anchor="middle" font-size="13" font-weight="bold">Validate & Confirm</text>
+                <text x="450" y="255" text-anchor="middle" font-size="13" font-weight="bold">Report</text>
+
+                <!-- Dismiss Report -->
+                <ellipse cx="350" cy="150" rx="80" ry="35" fill="#FFB6C1" stroke="#DC143C" stroke-width="2" />
+                <text x="350" y="155" text-anchor="middle" font-size="12" font-weight="bold">Dismiss Report</text>
+
+                <!-- Dispatch Staff -->
+                <ellipse cx="550" cy="340" rx="120" ry="45" fill="#DDA0DD" stroke="#9370DB" stroke-width="2" />
+                <text x="550" y="345" text-anchor="middle" font-size="14" font-weight="bold">Dispatch Staff</text>
+
+                <!-- View Reports & Analytics -->
+                <ellipse cx="400" cy="470" rx="130" ry="45" fill="#FFD700" stroke="#DAA520" stroke-width="2" />
+                <text x="400" y="470" text-anchor="middle" font-size="13" font-weight="bold">View Reports &</text>
+                <text x="400" y="488" text-anchor="middle" font-size="13" font-weight="bold">Analytics</text>
+
+                <!-- Publish Campus News -->
+                <ellipse cx="400" cy="580" rx="130" ry="45" fill="#98FB98" stroke="#228B22" stroke-width="2" />
+                <text x="400" y="585" text-anchor="middle" font-size="14" font-weight="bold">Publish Campus News</text>
+
+                <!-- Review Assigned Tasks -->
+                <ellipse cx="700" cy="450" rx="130" ry="45" fill="#87CEEB" stroke="#4682B4" stroke-width="2" />
+                <text x="700" y="455" text-anchor="middle" font-size="13" font-weight="bold">Review Assigned</text>
+                <text x="700" y="473" text-anchor="middle" font-size="13" font-weight="bold">Tasks</text>
+
+                <!-- Log Material Weight -->
+                <ellipse cx="650" cy="570" rx="130" ry="45" fill="#FFD700" stroke="#DAA520" stroke-width="2" />
+                <text x="650" y="565" text-anchor="middle" font-size="13" font-weight="bold">Log Material Weight</text>
+                <text x="650" y="583" text-anchor="middle" font-size="11">(Confirm Collection)</text>
+
+                <!-- Mark Task as Completed -->
+                <ellipse cx="700" cy="690" rx="130" ry="45" fill="#90EE90" stroke="#228B22" stroke-width="2" />
+                <text x="700" y="690" text-anchor="middle" font-size="13" font-weight="bold">Mark Task as</text>
+                <text x="700" y="708" text-anchor="middle" font-size="13" font-weight="bold">Completed</text>
+
+                <!-- View Impact Analytics -->
+                <ellipse cx="650" cy="790" rx="130" ry="40" fill="#FFD700" stroke="#DAA520" stroke-width="2" />
+                <text x="650" y="795" text-anchor="middle" font-size="13" font-weight="bold">View Impact
+                    Analytics</text>
+
+                <!-- Connections - Admin -->
+                <line x1="110" y1="380" x2="430" y2="130" stroke="#333" stroke-width="2" />
+                <line x1="110" y1="380" x2="290" y2="160" stroke="#333" stroke-width="2" />
+                <line x1="110" y1="380" x2="320" y2="230" stroke="#333" stroke-width="2" />
+                <line x1="110" y1="380" x2="440" y2="320" stroke="#333" stroke-width="2" />
+                <line x1="110" y1="390" x2="280" y2="460" stroke="#333" stroke-width="2" />
+                <line x1="110" y1="400" x2="280" y2="570" stroke="#333" stroke-width="2" />
+
+                <!-- Connections - MRF Staff -->
+                <line x1="990" y1="480" x2="670" y2="140" stroke="#333" stroke-width="2" />
+                <line x1="990" y1="480" x2="820" y2="445" stroke="#333" stroke-width="2" />
+                <line x1="990" y1="490" x2="770" y2="560" stroke="#333" stroke-width="2" />
+                <line x1="990" y1="510" x2="820" y2="680" stroke="#333" stroke-width="2" />
+                <line x1="990" y1="520" x2="770" y2="780" stroke="#333" stroke-width="2" />
+
+                <!-- Include relationship (dashed) -->
+                <line x1="590" y1="240" x2="670" y2="130" stroke="#999" stroke-width="2" stroke-dasharray="5,5" />
+                <text x="640" y="180" font-size="11" fill="#666">«include»</text>
+
+                <line x1="670" y1="340" x2="590" y2="430" stroke="#999" stroke-width="2" stroke-dasharray="5,5" />
+                <text x="620" y="380" font-size="11" fill="#666">«include»</text>
+            </svg>
+
+            <div class="verification-box">
+                <h3>✅ Verification Status</h3>
+                <ul>
+                    <li><strong>Actors:</strong> ADMIN and MRF roles confirmed in schema</li>
+                    <li><strong>Report Statuses:</strong> PENDING, VERIFIED, DISMISSED, DISPATCHED, IN_PROGRESS,
+                        COMPLETED implemented</li>
+                    <li><strong>Admin Functions:</strong> Verify/dismiss reports and dispatch staff endpoints exist</li>
+                    <li><strong>MRF Operations:</strong> confirm-collection (log weight) and mark-done (complete task)
+                        endpoints verified</li>
+                    <li><strong>Points System:</strong> Points awarded on report completion (20 points per completed
+                        report)</li>
+                    <li><strong>Campus News:</strong> News CRUD operations with publishedBy relation to User</li>
+                    <li><strong>Assignment:</strong> assignedStaffId field in Report model for task assignment</li>
+                    <li><strong>Weight Tracking:</strong> kilosCollected and collectionDate fields in Report model</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Complete System Summary -->
+        <div class="diagram-section">
+            <h2>System Summary</h2>
+            <p><strong>SORT v2 (Smart Operational Recovery and Tracking System)</strong> is a comprehensive Material
+                Recovery Facility management system with the following verified features:</p>
+
+            <h3 style="color: #667eea; margin: 20px 0 10px;">🎯 Core Workflows</h3>
+            <ol style="color: #555; line-height: 2; margin-left: 20px;">
+                <li><strong>Report Submission:</strong> Students/Teachers submit waste or asset reports with location,
+                    photos, and notes</li>
+                <li><strong>Admin Validation:</strong> Admin reviews and verifies or dismisses reports</li>
+                <li><strong>Staff Dispatch:</strong> Admin assigns verified reports to MRF staff members</li>
+                <li><strong>Collection Tracking:</strong> MRF staff logs material weight and confirms collection</li>
+                <li><strong>Task Completion:</strong> MRF staff marks tasks as completed, triggering point awards</li>
+                <li><strong>Gamification:</strong> Reporter receives 20 points upon report completion</li>
+                <li><strong>Communication:</strong> Admin publishes campus news and updates</li>
+            </ol>
+
+            <h3 style="color: #667eea; margin: 20px 0 10px;">👥 User Roles</h3>
+            <ul style="color: #555; line-height: 2; margin-left: 20px;">
+                <li><strong>STUDENT:</strong> Submit reports, view points, view leaderboard</li>
+                <li><strong>TEACHER:</strong> Submit reports, view points</li>
+                <li><strong>ADMIN:</strong> Validate reports, dispatch staff, publish news, view analytics</li>
+                <li><strong>MRF:</strong> View assigned tasks, log collection weight, mark completed</li>
+            </ul>
+
+            <h3 style="color: #667eea; margin: 20px 0 10px;">📊 Database Structure</h3>
+            <ul style="color: #555; line-height: 2; margin-left: 20px;">
+                <li><strong>User:</strong> Profile, role, points, reports count, gamification data</li>
+                <li><strong>Report:</strong> Location, type (WASTE/ASSET), status, assigned staff, kilos collected,
+                    collection date</li>
+                <li><strong>CampusNews:</strong> Announcements with tag, date, title, description</li>
+            </ul>
+
+            <h3 style="color: #667eea; margin: 20px 0 10px;">🔄 Status Lifecycle</h3>
+            <p style="color: #555; line-height: 2;">
+                <strong>PENDING</strong> → <strong>VERIFIED</strong> (admin approval) → <strong>DISPATCHED</strong>
+                (staff assigned) →
+                <strong>IN_PROGRESS</strong> (collecting) → <strong>COMPLETED</strong> (done, points awarded)
+                <br>
+                <em>Alternative:</em> <strong>PENDING</strong> → <strong>DISMISSED</strong> (invalid/duplicate)
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -44,12 +44,12 @@ PERN Stack backend with Prisma ORM for authentication and RBAC.
 
 ## Demo Credentials
 
-| Role     | Username | Password    |
-|----------|----------|-------------|
-| Student  | student  | student123  |
-| Teacher  | teacher  | teacher123  |
-| Admin    | admin    | admin123    |
-| MRF Staff| mrf      | mrf123      |
+| Role     | Username     | Password    |
+|----------|--------------|-------------|
+| Student  | student      | student123  |
+| Teacher  | teacher      | teacher123  |
+| Admin    | admin        | admin123    |
+| MRF Staff| ricomendoza  | rico123     |
 
 ## API Endpoints
 

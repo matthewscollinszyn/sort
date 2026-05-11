@@ -7,34 +7,53 @@ class ApiService {
         this.storage = this.getStorage();
     }
 
-    // Determine which storage to use - sessionStorage for tab isolation, localStorage for persistence
+    // Determine which storage to use - use localStorage for persistence across tabs
     getStorage() {
-        // Check if we have sessionStorage capabilities
         try {
             const test = '__test__';
-            sessionStorage.setItem(test, test);
-            sessionStorage.removeItem(test);
-            return sessionStorage;
-        } catch (e) {
+            localStorage.setItem(test, test);
+            localStorage.removeItem(test);
             return localStorage;
+        } catch (e) {
+            // Fallback to sessionStorage if localStorage is blocked
+            return sessionStorage;
         }
     }
 
     getToken() {
-        return this.storage.getItem('token');
+        // Try localStorage first, then sessionStorage as fallback
+        return localStorage.getItem('token') || sessionStorage.getItem('token');
     }
 
     setToken(token) {
-        this.storage.setItem('token', token);
+        // Store in both for maximum compatibility
+        try {
+            localStorage.setItem('token', token);
+        } catch (e) {
+            console.warn('localStorage unavailable, using sessionStorage');
+        }
+        sessionStorage.setItem('token', token);
     }
 
     removeToken() {
-        this.storage.removeItem('token');
+        // Clear from both storages
+        try {
+            localStorage.removeItem('token');
+        } catch (e) {
+            // Ignore
+        }
+        try {
+            sessionStorage.removeItem('token');
+        } catch (e) {
+            // Ignore
+        }
     }
 
     async request(endpoint, options = {}) {
+        console.log('[API.request] Called with endpoint:', endpoint, 'options:', options);
         const url = `${this.baseUrl}${endpoint}`;
         const token = this.getToken();
+        console.log('[API.request] Token:', token ? 'EXISTS' : 'MISSING');
 
         const config = {
             headers: {
@@ -49,9 +68,12 @@ class ApiService {
             config.body = JSON.stringify(options.body);
         }
 
+        console.log('[API.request] Fetching:', url, config);
         try {
             const response = await fetch(url, config);
+            console.log('[API.request] Response status:', response.status, response.statusText);
             const data = await response.json();
+            console.log('[API.request] Response data:', data);
 
             if (!response.ok) {
                 throw new Error(data.message || 'Request failed');
@@ -59,8 +81,18 @@ class ApiService {
 
             return data;
         } catch (error) {
+            console.error('[API.request] ERROR:', error);
             throw error;
         }
+    }
+
+    getStreamUrl(endpoint) {
+        const token = this.getToken();
+        const url = new URL(`${this.baseUrl}${endpoint}`);
+        if (token) {
+            url.searchParams.set('token', token);
+        }
+        return url.toString();
     }
 
     // Auth endpoints
@@ -77,16 +109,23 @@ class ApiService {
         return response;
     }
 
+    async register(userData) {
+        return this.request('/auth/register', {
+            method: 'POST',
+            body: userData,
+        });
+    }
+
     async getMe() {
         return this.request('/auth/me');
     }
 
-    async getAllUsers() {
-        return this.request('/auth/users');
-    }
-
     signout() {
         this.removeToken();
+    }
+
+    async getAllUsers() {
+        return this.request('/auth/users');
     }
 
     // Reports endpoints
@@ -102,9 +141,16 @@ class ApiService {
         return this.request(`/reports/my-reports${query}`);
     }
 
-    async getAllReports(status = 'all') {
-        const query = status !== 'all' ? `?status=${status}` : '';
+    async getAllReports(status = 'all', type) {
+        const params = new URLSearchParams();
+        if (status !== 'all') params.append('status', status);
+        if (type && type !== 'all') params.append('type', type);
+        const query = params.toString() ? `?${params.toString()}` : '';
         return this.request(`/reports${query}`);
+    }
+
+    async getImpactMetrics() {
+        return this.request('/reports/impact-metrics');
     }
 
     async getReportById(id) {
@@ -123,7 +169,227 @@ class ApiService {
             method: 'DELETE',
         });
     }
+
+    // MRF workflow endpoints
+    async dispatchStaff(reportId, staffId, staffName) {
+        return this.request(`/reports/${reportId}/dispatch`, {
+            method: 'POST',
+            body: { staffId, staffName },
+        });
+    }
+
+    async confirmCollection(reportId, kilosCollected) {
+        return this.request(`/reports/${reportId}/confirm-collection`, {
+            method: 'POST',
+            body: { kilos: kilosCollected },
+        });
+    }
+
+    async markAsDone(reportId) {
+        return this.request(`/reports/${reportId}/mark-done`, {
+            method: 'POST',
+        });
+    }
+
+    async getLeaderboard() {
+        return this.request('/auth/leaderboard');
+    }
+
+    async getNews() {
+        return this.request('/news');
+    }
+
+    async createNewsItem(newsItem) {
+        console.log('[API] createNewsItem called', newsItem);
+        try {
+            const result = await this.request('/news', {
+                method: 'POST',
+                body: newsItem,
+            });
+            console.log('[API] createNewsItem result', result);
+            return result;
+        } catch (error) {
+            console.error('[API] createNewsItem ERROR:', error);
+            throw error;
+        }
+    }
+
+    async updateNewsItem(id, changes) {
+        return this.request(`/news/${id}`, {
+            method: 'PATCH',
+            body: changes,
+        });
+    }
+
+    async deleteNewsItem(id) {
+        return this.request(`/news/${id}`, {
+            method: 'DELETE',
+        });
+    }
+
+    getNewsStreamUrl() {
+        return this.getStreamUrl('/news/stream');
+    }
+
+    getReportsStreamUrl() {
+        return this.getStreamUrl('/reports/stream');
+    }
+
+    // Settings endpoints - Asset Categories
+    async getAssetCategories() {
+        return this.request('/settings/asset-categories');
+    }
+
+    async createAssetCategory(data) {
+        return this.request('/settings/asset-categories', {
+            method: 'POST',
+            body: data,
+        });
+    }
+
+    async updateAssetCategory(id, data) {
+        return this.request(`/settings/asset-categories/${id}`, {
+            method: 'PUT',
+            body: data,
+        });
+    }
+
+    async deleteAssetCategory(id) {
+        return this.request(`/settings/asset-categories/${id}`, {
+            method: 'DELETE',
+        });
+    }
+
+    // Settings endpoints - Locations
+    async getLocations(type) {
+        const query = type ? `?type=${type}` : '';
+        return this.request(`/settings/locations${query}`);
+    }
+
+    async createLocation(data) {
+        return this.request('/settings/locations', {
+            method: 'POST',
+            body: data,
+        });
+    }
+
+    async updateLocation(id, data) {
+        return this.request(`/settings/locations/${id}`, {
+            method: 'PUT',
+            body: data,
+        });
+    }
+
+    async deleteLocation(id) {
+        return this.request(`/settings/locations/${id}`, {
+            method: 'DELETE',
+        });
+    }
+
+    // Settings endpoints - Item Presets
+    async getItemPresets(categoryId) {
+        const query = categoryId ? `?categoryId=${categoryId}` : '';
+        return this.request(`/settings/item-presets${query}`);
+    }
+
+    async createItemPreset(data) {
+        return this.request('/settings/item-presets', {
+            method: 'POST',
+            body: data,
+        });
+    }
+
+    async updateItemPreset(id, data) {
+        return this.request(`/settings/item-presets/${id}`, {
+            method: 'PUT',
+            body: data,
+        });
+    }
+
+    async deleteItemPreset(id) {
+        return this.request(`/settings/item-presets/${id}`, {
+            method: 'DELETE',
+        });
+    }
+
+    // Map endpoints - Campus map
+    async uploadCampusMap(imageData, imageName, imageSize) {
+        return this.request('/map/upload', {
+            method: 'POST',
+            body: { imageData, imageName, imageSize },
+        });
+    }
+
+    async getCampusMap() {
+        return this.request('/map/current');
+    }
+
+    // Map endpoints - Bin coordinates
+    async updateBinCoordinates(locationId, mapX, mapY) {
+        return this.request(`/map/bins/${locationId}/coordinates`, {
+            method: 'PUT',
+            body: { mapX, mapY },
+        });
+    }
+
+    // Map endpoints - Bin statuses
+    async getBinStatuses() {
+        return this.request('/map/bins/statuses');
+    }
+
+    async updateBinStatus(locationId, fillStatus) {
+        return this.request(`/map/bins/${locationId}/status`, {
+            method: 'PUT',
+            body: { fillStatus },
+        });
+    }
+
+    // Map endpoints - Analytics
+    async getAnalytics() {
+        return this.request('/map/analytics');
+    }
+
+    // System settings
+    async getSystemSettings() {
+        return this.request('/settings/system');
+    }
+
+    async updateSystemSettings(settings) {
+        return this.request('/settings/system', {
+            method: 'PUT',
+            body: { settings },
+        });
+    }
+
+    // Generic HTTP methods
+    async get(endpoint) {
+        return this.request(endpoint, { method: 'GET' });
+    }
+
+    async post(endpoint, data) {
+        return this.request(endpoint, {
+            method: 'POST',
+            body: data,
+        });
+    }
+
+    async put(endpoint, data) {
+        return this.request(endpoint, {
+            method: 'PUT',
+            body: data,
+        });
+    }
+
+    async delete(endpoint) {
+        return this.request(endpoint, { method: 'DELETE' });
+    }
+
+    // Property getter for backward compatibility
+    get BASE_URL() {
+        return this.baseUrl;
+    }
 }
 
 export const api = new ApiService();
 export default api;
+export { API_BASE_URL };

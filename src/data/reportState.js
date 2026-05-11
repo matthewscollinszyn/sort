@@ -1,5 +1,5 @@
 /* =========================================================
-   EcoLedger – Shared Report State
+   EcoLedger ï¿½ Shared Report State
    Single source of truth consumed by every dashboard.
    Fresh system - no dummy data
    ========================================================= */
@@ -48,7 +48,15 @@ const WASTE_CATEGORIES = {
 };
 
 // -- Empty Data Arrays (Fresh System) --------------------
-const mrfStaffMembers = [];
+const mrfStaffMembers = [
+  {
+    id: 'mrf-rico-mendoza',
+    name: 'Rico Mendoza',
+    role: 'Collection Specialist',
+    available: true,
+    phone: '+63 912 345 6789'
+  }
+];
 const collectionLocations = [];
 const wasteCollections = [];
 const binReports = [];

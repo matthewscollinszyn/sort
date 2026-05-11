@@ -44,7 +44,11 @@ export function AuthProvider({ children }) {
                 }
             } catch (err) {
                 console.error('❌ Auth check failed:', err.message);
-                api.removeToken();
+                // Only remove token on explicit auth failures (401), not network errors
+                if (err.message?.includes('401') || err.message?.includes('Invalid token') || err.message?.includes('Token expired') || err.message?.includes('No token')) {
+                    api.removeToken();
+                }
+                // On network error, keep the token so user stays logged in when server recovers
             } finally {
                 setLoading(false);
             }

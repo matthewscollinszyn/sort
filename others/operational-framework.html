@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SORT v2 Operational Framework</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f4f6f0;
+            --panel: #ffffff;
+            --line: #d6dccd;
+            --text: #243126;
+            --muted: #5d6b5f;
+            --accent: #4f7a54;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Georgia, "Times New Roman", serif;
+            background: linear-gradient(180deg, #f8faf5 0%, var(--bg) 100%);
+            color: var(--text);
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 20px 48px;
+        }
+
+        header {
+            margin-bottom: 24px;
+        }
+
+        h1,
+        h2,
+        h3 {
+            margin: 0;
+            font-weight: 600;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 4vw, 2.8rem);
+            margin-bottom: 10px;
+        }
+
+        p {
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        .intro {
+            max-width: 760px;
+            color: var(--muted);
+        }
+
+        .status-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .status-pill {
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.8);
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-size: 0.92rem;
+        }
+
+        .grid {
+            display: grid;
+            gap: 18px;
+        }
+
+        .diagram-card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 20px;
+            box-shadow: 0 12px 30px rgba(36, 49, 38, 0.05);
+        }
+
+        .diagram-card h2 {
+            margin-bottom: 8px;
+            font-size: 1.35rem;
+        }
+
+        .diagram-card p {
+            color: var(--muted);
+            margin-bottom: 14px;
+        }
+
+        .mermaid {
+            overflow-x: auto;
+        }
+
+        footer {
+            margin-top: 24px;
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        @media (max-width: 700px) {
+            main {
+                padding: 24px 14px 36px;
+            }
+
+            .diagram-card {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <header>
+            <h1>SORT v2 Operational Framework</h1>
+            <p class="intro">
+                Standalone diagram page based on the current backend schema and controller flow. It summarizes how users
+                submit reports, how admin and MRF staff process them, and how data moves through the API, database, and
+                realtime updates.
+            </p>
+            <div class="status-strip" aria-label="Core report status path">
+                <span class="status-pill">PENDING</span>
+                <span class="status-pill">VERIFIED</span>
+                <span class="status-pill">DISMISSED</span>
+                <span class="status-pill">DISPATCHED</span>
+                <span class="status-pill">COLLECTED</span>
+                <span class="status-pill">RESOLVED</span>
+            </div>
+        </header>
+
+        <section class="grid">
+            <article class="diagram-card">
+                <h2>Operational Framework</h2>
+                <p>
+                    High-level operating model for report intake, validation, MRF dispatch, and campus communication.
+                </p>
+                <div class="mermaid">
+                    flowchart LR
+                    student[Student / Teacher] --> auth[Sign in and open dashboard]
+                    auth --> submit[Submit report with location, notes, photo, urgency]
+                    submit --> api[Report API]
+                    api --> db[(PostgreSQL via Prisma)]
+                    api --> admin[Admin review]
+                    admin -->|Invalid or duplicate| dismissed[Dismiss report]
+                    admin -->|Valid report| verified[Verify report]
+                    verified --> points[Award reporter points when applicable]
+                    verified --> dispatch[Dispatch MRF staff]
+                    dispatch --> mrf[MRF staff collection workflow]
+                    mrf --> collected[Mark collected]
+                    collected --> resolved[Resolve report]
+                    admin --> news[Publish campus news]
+                    news --> campus[Campus users receive updates]
+                    api -. realtime events .-> dashboards[Student, Admin, and MRF dashboards]
+                </div>
+            </article>
+
+            <article class="diagram-card">
+                <h2>Context Diagram</h2>
+                <p>
+                    System boundary view showing the main external actors and services that interact with SORT v2.
+                </p>
+                <div class="mermaid">
+                    flowchart LR
+                    student[Student / Teacher Users] --> frontend
+                    admin[Admin Users] --> frontend
+                    mrf[MRF Staff] --> frontend
+                    backend --> updates[News and Status Updates]
+                    updates --> campus[Campus Community]
+                    db[(PostgreSQL Database)] <--> backend
+                        sse[[Realtime SSE Channels]] <--> backend
+
+                            subgraph sortSystem[SORT v2 Reporting System]
+                            frontend[React Frontend]
+                            backend[Node and Express API]
+                            frontend <--> backend
+                                end
+                </div>
+            </article>
+
+            <article class="diagram-card">
+                <h2>Entity Relationship Diagram</h2>
+                <p>
+                    Core database entities from the Prisma schema: users, reports, and campus news.
+                </p>
+                <div class="mermaid">
+                    erDiagram
+                    USER {
+                    string id PK
+                    string username UK
+                    string password
+                    enum role
+                    string firstName
+                    string lastName
+                    string email UK
+                    string studentId UK
+                    string course
+                    string section
+                    string department
+                    int points
+                    int reports
+                    datetime createdAt
+                    datetime updatedAt
+                    }
+
+                    REPORT {
+                    string id PK
+                    string location
+                    string notes
+                    string photoUrl
+                    string urgency
+                    string wasteType
+                    enum type
+                    enum status
+                    string assignedStaffId FK
+                    float kilosCollected
+                    datetime collectionDate
+                    string userId FK
+                    datetime createdAt
+                    datetime updatedAt
+                    }
+
+                    CAMPUS_NEWS {
+                    string id PK
+                    string tag
+                    string date
+                    string title
+                    string desc
+                    string publishedById FK
+                    datetime createdAt
+                    datetime updatedAt
+                    }
+
+                    ASSET_CATEGORY {
+                    string id PK
+                    string name UK
+                    string label
+                    boolean enabled
+                    int sortOrder
+                    datetime createdAt
+                    datetime updatedAt
+                    }
+
+                    ITEM_PRESET {
+                    string id PK
+                    string name
+                    string icon
+                    string categoryId FK
+                    boolean enabled
+                    int sortOrder
+                    datetime createdAt
+                    datetime updatedAt
+                    }
+
+                    LOCATION {
+                    string id PK
+                    string code UK
+                    string name
+                    enum type
+                    string building
+                    boolean enabled
+                    int sortOrder
+                    float mapX
+                    float mapY
+                    datetime createdAt
+                    datetime updatedAt
+                    }
+
+                    CAMPUS_MAP {
+                    string id PK
+                    string imageData
+                    string imageName
+                    string imageSize
+                    string uploadedById
+                    datetime createdAt
+                    datetime updatedAt
+                    }
+
+                    BIN_STATUS {
+                    string id PK
+                    string locationId FK
+                    string fillStatus
+                    datetime lastUpdated
+                    string updatedBy
+                    datetime createdAt
+                    datetime updatedAt
+                    }
+
+                    SYSTEM_SETTINGS {
+                    string id PK
+                    string key UK
+                    string value
+                    string label
+                    string updatedById
+                    datetime createdAt
+                    datetime updatedAt
+                    }
+
+                    USER ||--o{ REPORT : "submits"
+                    USER o|--o{ REPORT : "assigned_to"
+                    USER o|--o{ CAMPUS_NEWS : "publishes"
+                    ASSET_CATEGORY ||--o{ ITEM_PRESET : "contains"
+                    LOCATION ||--o| BIN_STATUS : "tracks"
+                </div>
+            </article>
+
+            <article class="diagram-card">
+                <h2>Data Flow Diagram</h2>
+                <p>
+                    Main application data movement for authentication, report handling, campus news, and realtime
+                    streams.
+                </p>
+                <div class="mermaid">
+                    flowchart TD
+                    student[Student / Teacher Client]
+                    admin[Admin Client]
+                    mrf[MRF Staff Client]
+                    app[React Frontend]
+                    authApi[/Auth Routes/]
+                    reportApi[/Report Routes/]
+                    newsApi[/News Routes/]
+                    controllers[Express Controllers]
+                    prisma[Prisma Client]
+                    db[(PostgreSQL)]
+                    sse[[SSE Streams]]
+
+                    student --> app
+                    admin --> app
+                    mrf --> app
+
+                    app --> authApi
+                    app --> reportApi
+                    app --> newsApi
+
+                    authApi --> controllers
+                    reportApi --> controllers
+                    newsApi --> controllers
+
+                    controllers --> prisma
+                    prisma --> db
+                    db --> prisma
+                    prisma --> controllers
+
+                    controllers --> sse
+                    sse --> app
+
+                    reportApi -->|create, update, dispatch, fetch| app
+                    newsApi -->|list, publish, edit, delete| app
+                    authApi -->|signin, me, users, leaderboard| app
+                </div>
+            </article>
+        </section>
+
+        <footer>
+            Derived from the current Prisma schema and backend report, auth, news, and realtime flow.
+        </footer>
+    </main>
+
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#eef4ea',
+                primaryTextColor: '#243126',
+                primaryBorderColor: '#8ca48c',
+                lineColor: '#5f7660',
+                secondaryColor: '#f8faf5',
+                tertiaryColor: '#ffffff',
+                fontFamily: 'Georgia, Times New Roman, serif'
+            },
+            flowchart: {
+                curve: 'basis'
+            }
+        });
+    </script>
+</body>
+
+</html>

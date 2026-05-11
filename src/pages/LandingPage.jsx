@@ -20,6 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { impactStats } from '../data/reportState';
+import { useCampusNews, TAG_COLOR_MAP } from '../hooks/useCampusNews';
 
 /* ── Animations ─────────────────────────────────────────── */
 const fadeUp = {
@@ -304,68 +305,18 @@ const testimonials = [
   { name: 'Rico Mendoza', role: 'MRF Staff Lead', text: 'We resolve reports 40% faster now. The queue system is incredibly efficient.', avatar: '👷' },
 ];
 
-const campusUpdates = [
-  {
-    id: 1,
-    tag: 'MRF Update',
-    tagColor: 'bg-eco-green/15 text-eco-green',
-    date: 'Feb 24, 2026',
-    title: 'Extended Collection Hours Campus-Wide',
-    desc: 'Starting March 1, MRF collection trucks will operate from 6 AM to 8 PM on weekdays — two extra hours to keep campus clean.',
-    icon: Truck,
-    iconBg: 'from-eco-green to-teal-500',
-  },
-  {
-    id: 2,
-    tag: 'New Facility',
-    tagColor: 'bg-blue-400/15 text-blue-400',
-    date: 'Feb 20, 2026',
-    title: '5 New Segregation Stations Installed',
-    desc: 'Color-coded recycling stations are now live near Science Hall, the Gym, and Admin Building. Look for the green, blue, and yellow bins.',
-    icon: Recycle,
-    iconBg: 'from-blue-500 to-indigo-500',
-  },
-  {
-    id: 3,
-    tag: 'Achievement',
-    tagColor: 'bg-amber-400/15 text-amber-400',
-    date: 'Feb 18, 2026',
-    title: 'Campus Hits 2,000+ Reports This Semester',
-    desc: 'Thanks to student participation, our campus filed over 2,000 waste reports — a 68% increase from last semester.',
-    icon: TrendingUp,
-    iconBg: 'from-amber-400 to-orange-500',
-  },
-  {
-    id: 4,
-    tag: 'Event',
-    tagColor: 'bg-pink-400/15 text-pink-400',
-    date: 'Feb 15, 2026',
-    title: 'Eco-Points Double Weekend This March',
-    desc: 'Report bins on March 8–9 and earn 2× eco-points. Top reporters will receive exclusive campus sustainability badges.',
-    icon: Award,
-    iconBg: 'from-pink-500 to-rose-500',
-  },
-  {
-    id: 5,
-    tag: 'Program',
-    tagColor: 'bg-violet-400/15 text-violet-400',
-    date: 'Feb 12, 2026',
-    title: 'Zero-Waste Cafeteria Pilot Launches',
-    desc: 'Block A cafeteria is going zero-waste for 30 days. Biodegradable containers replace all single-use plastics starting Feb 28.',
-    icon: Droplets,
-    iconBg: 'from-violet-500 to-purple-500',
-  },
-  {
-    id: 6,
-    tag: 'Research',
-    tagColor: 'bg-cyan-400/15 text-cyan-400',
-    date: 'Feb 10, 2026',
-    title: 'Waste Audit Reveals 42% Recyclable Content',
-    desc: 'A campus-wide waste audit by the Environmental Science Dept. found that 42% of waste is recyclable - the team is working to capture more.',
-    icon: FlaskConical,
-    iconBg: 'from-cyan-500 to-sky-500',
-  },
-];
+const TAG_ICON_MAP = {
+  'MRF Update': Truck,
+  'New Facility': Recycle,
+  'Achievement': TrendingUp,
+  'Event': Award,
+  'Program': Droplets,
+  'Research': FlaskConical,
+  'Maintenance': Wrench,
+  'Assets': Building2,
+  'Announcement': Megaphone,
+  'Update': TrendingUp,
+};
 
 const campusPartners = [
   { name: 'Office of Student Affairs', icon: Building2, desc: 'Student engagement & events' },
@@ -383,12 +334,15 @@ export default function LandingPage() {
   const { signin, error: authError, loading: authLoading, clearError } = useAuth();
   const [authMode, setAuthMode] = useState('signin');
 
+  // Campus news from shared localStorage hook
+  const { news: campusUpdates } = useCampusNews();
+
   // Demo credentials for RBAC
   const demoCredentials = [
     { role: 'Student', username: 'student', password: 'student123', icon: GraduationCap, color: 'from-blue-500 to-cyan-500' },
     { role: 'Teacher', username: 'teacher', password: 'teacher123', icon: Users, color: 'from-amber-500 to-orange-500' },
     { role: 'Admin', username: 'admin', password: 'admin123', icon: ShieldCheck, color: 'from-purple-500 to-pink-500' },
-    { role: 'MRF Staff', username: 'mrf', password: 'mrf123', icon: Truck, color: 'from-eco-green to-teal-500' },
+    { role: 'MRF Staff', username: 'ricomendoza', password: 'rico123', icon: Truck, color: 'from-eco-green to-teal-500' },
   ];
 
   // Student ID format validator: 3 letters + 6 digits + 2 digits = RSE06240300
@@ -794,41 +748,45 @@ export default function LandingPage() {
 
           <motion.div variants={stagger} initial="hidden" whileInView="visible" viewport={{ once: true }}
             className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {campusUpdates.map((item, i) => (
-              <motion.article key={item.id} variants={fadeUp} custom={i}
-                className={`group relative overflow-hidden rounded-2xl border backdrop-blur-sm p-6 transition-all duration-300 hover:shadow-xl hover:shadow-eco-green/5 ${theme === 'dark'
-                  ? 'border-white/5 bg-slate-900/60 hover:border-eco-green/20 hover:bg-slate-900/90'
-                  : 'border-slate-200 bg-white/60 hover:border-eco-green/30 hover:bg-white/90'
-                  }`}>
-                {/* Decorative glow on hover */}
-                <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-eco-green/4 blur-xl transition-all duration-500 group-hover:bg-eco-green/8" />
+            {campusUpdates.map((item, i) => {
+              const tagStyle = (TAG_COLOR_MAP[item.tag] || { tagColor: 'bg-slate-100 text-slate-600', iconBg: 'from-slate-400 to-slate-500' });
+              const IconComp = TAG_ICON_MAP[item.tag] || TrendingUp;
+              return (
+                <motion.article key={item.id} variants={fadeUp} custom={i}
+                  className={`group relative overflow-hidden rounded-2xl border backdrop-blur-sm p-6 transition-all duration-300 hover:shadow-xl hover:shadow-eco-green/5 ${theme === 'dark'
+                    ? 'border-white/5 bg-slate-900/60 hover:border-eco-green/20 hover:bg-slate-900/90'
+                    : 'border-slate-200 bg-white/60 hover:border-eco-green/30 hover:bg-white/90'
+                    }`}>
+                  {/* Decorative glow on hover */}
+                  <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-eco-green/4 blur-xl transition-all duration-500 group-hover:bg-eco-green/8" />
 
-                <div className="relative">
-                  {/* Tag + date */}
-                  <div className="flex items-center justify-between mb-3">
-                    <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${item.tagColor}`}>
-                      {item.tag}
-                    </span>
-                    <span className={`flex items-center gap-1 text-[10px] ${theme === 'dark' ? 'text-slate-600' : 'text-slate-500'
-                      }`}>
-                      <CalendarDays className="h-3 w-3" />
-                      {item.date}
-                    </span>
+                  <div className="relative">
+                    {/* Tag + date */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${tagStyle.tagColor}`}>
+                        {item.tag}
+                      </span>
+                      <span className={`flex items-center gap-1 text-[10px] ${theme === 'dark' ? 'text-slate-600' : 'text-slate-500'
+                        }`}>
+                        <CalendarDays className="h-3 w-3" />
+                        {item.date}
+                      </span>
+                    </div>
+
+                    {/* Icon */}
+                    <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${tagStyle.iconBg} text-white shadow-lg transition-transform group-hover:scale-110`}>
+                      <IconComp className="h-5 w-5" />
+                    </div>
+
+                    {/* Title & Body */}
+                    <h3 className={`mb-2 font-bold leading-snug ${theme === 'dark' ? 'text-white' : 'text-slate-900'
+                      }`}>{item.title}</h3>
+                    <p className={`text-sm leading-relaxed ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'
+                      }`}>{item.desc}</p>
                   </div>
-
-                  {/* Icon */}
-                  <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br ${item.iconBg} text-white shadow-lg transition-transform group-hover:scale-110`}>
-                    <item.icon className="h-5 w-5" />
-                  </div>
-
-                  {/* Title & Body */}
-                  <h3 className={`mb-2 font-bold leading-snug ${theme === 'dark' ? 'text-white' : 'text-slate-900'
-                    }`}>{item.title}</h3>
-                  <p className={`text-sm leading-relaxed ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'
-                    }`}>{item.desc}</p>
-                </div>
-              </motion.article>
-            ))}
+                </motion.article>
+              );
+            })}
           </motion.div>
 
           {/* View All button */}

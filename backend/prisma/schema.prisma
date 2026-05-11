@@ -2,6 +2,13 @@
 
 generator client {
   provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+generator erd {
+  provider = "prisma-erd-generator"
+  output   = "../../prisma-erd.svg"
+  theme    = "forest"
 }
 
 datasource db {
@@ -21,12 +28,24 @@ enum ReportStatus {
   VERIFIED
   DISMISSED
   DISPATCHED
+  IN_PROGRESS
+  COMPLETED
   COLLECTED
   RESOLVED
 }
 
+enum ReportType {
+  WASTE
+  ASSET
+}
+
+enum LocationType {
+  BIN_LOCATION
+  ROOM_LOCATION
+}
+
 model User {
-  id        String   @id @default(cuid())
+  id        Int      @id @default(autoincrement())
   username  String   @unique
   password  String
   role      Role     @default(STUDENT)
@@ -38,6 +57,7 @@ model User {
   
   // Student-specific fields
   studentId  String?  @unique
+  lrn        String?  @unique  // Learner Reference Number
   course     String?
   section    String?
   department String?
@@ -51,23 +71,32 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relations
-  binReports Report[]
+  submittedReports Report[]  @relation("UserReports")
+  assignedReports Report[]   @relation("AssignedStaffReports")
+  newsPosts     CampusNews[] @relation("PublishedNews")
 
   @@map("users")
 }
 
 model Report {
-  id          String       @id @default(cuid())
+  id          Int          @id @default(autoincrement())
   location    String
   notes       String?
   photoUrl    String?
   urgency     String       @default("normal")
   wasteType   String       @default("general")
+  type        ReportType   @default(WASTE)
   status      ReportStatus @default(PENDING)
   
+  // MRF Operations fields
+  assignedStaffId  Int?
+  kilosCollected   Float?
+  collectionDate   DateTime?
+  
   // User relation
-  userId      String
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      Int
+  user        User         @relation("UserReports", fields: [userId], references: [id], onDelete: Cascade)
+  assignedStaff User?      @relation("AssignedStaffReports", fields: [assignedStaffId], references: [id], onDelete: SetNull)
   
   // Timestamps
   createdAt   DateTime     @default(now())
@@ -76,4 +105,155 @@ model Report {
   @@map("reports")
   @@index([userId])
   @@index([status])
+  @@index([assignedStaffId])
+  @@index([type, status])
+}
+
+model CampusNews {
+  id           Int      @id @default(autoincrement())
+  tag          String
+  date         String
+  title        String
+  desc         String
+  publishedById Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  publishedBy  User?    @relation("PublishedNews", fields: [publishedById], references: [id], onDelete: SetNull)
+
+  @@map("campus_news")
+  @@index([createdAt])
+  @@index([publishedById])
+}
+
+model AssetCategory {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  label     String
+  enabled   Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  itemPresets ItemPreset[] @relation("CategoryPresets")
+
+  @@map("asset_categories")
+  @@index([enabled, sortOrder])
+}
+
+model ItemPreset {
+  id         Int      @id @default(autoincrement())
+  name       String
+  icon       String   @default("📦")
+  categoryId Int
+  enabled    Boolean  @default(true)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  category   AssetCategory @relation("CategoryPresets", fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("item_presets")
+  @@index([categoryId, enabled, sortOrder])
+}
+
+model Location {
+  id        Int          @id @default(autoincrement())
+  code      String       @unique // e.g., LOC-01, ROOM-01
+  name      String
+  type      LocationType
+  building  String?      // For ROOM_LOCATION, which building it belongs to
+  enabled   Boolean      @default(true)
+  sortOrder Int          @default(0)
+  
+  // Map coordinates for visual representation
+  mapX      Float?
+  mapY      Float?
+  
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@map("locations")
+  @@index([type, enabled, sortOrder])
+}
+
+model CampusMap {
+  id        Int      @id @default(autoincrement())
+  imageData String   @db.Text // Base64 encoded image
+  imageName String?
+  imageSize String?
+  uploadedById Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("campus_maps")
+}
+
+model BinStatus {
+  id         Int      @id @default(autoincrement())
+  locationId Int      @unique // References Location.id
+  fillStatus String   @default("empty") // empty, half, full
+  lastUpdated DateTime @default(now())
+  updatedBy  Int?  // User ID who updated the status
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("bin_statuses")
+  @@index([fillStatus])
+}
+
+model SystemSettings {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique // e.g., "points_1st", "points_2nd", "points_3rd"
+  value     String   // Stored as string, parse as needed
+  label     String?  // Human-readable label
+  updatedById Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+model WasteType {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique // e.g., "recyclable", "biodegradable"
+  label     String   // Display name
+  emoji     String   @default("♻️")
+  enabled   Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("waste_types")
+  @@index([enabled, sortOrder])
+}
+
+model UrgencyLevel {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique // e.g., "low", "normal", "high"
+  label       String   // Display name
+  description String?  // Short description
+  color       String?  // Color class for UI
+  enabled     Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("urgency_levels")
+  @@index([enabled, sortOrder])
+}
+
+model AssetCondition {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique // e.g., "damaged", "malfunctioning"
+  label       String   // Display name
+  description String?  // Short description
+  enabled     Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("asset_conditions")
+  @@index([enabled, sortOrder])
 }

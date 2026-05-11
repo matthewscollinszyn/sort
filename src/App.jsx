@@ -12,6 +12,8 @@ import Dashboard from './pages/Dashboard';
 import StudentLandingPage from './pages/StudentLandingPage';
 import TeacherLandingPage from './pages/TeacherLandingPage';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminSignIn from './pages/AdminSignIn';
+import MRFSignIn from './pages/MRFSignIn';
 import MRFStaffDashboard from './pages/MRFStaffDashboard';
 import './App.css';
 
@@ -22,6 +24,10 @@ export default function App() {
         <Routes>
           {/* Public landing – no sidebar / bottom-nav */}
           <Route index element={<LandingPage />} />
+
+          {/* Sign in pages for different user types */}
+          <Route path="admin/signin" element={<AdminSignIn />} />
+          <Route path="mrf/signin" element={<MRFSignIn />} />
 
           {/* Student hub – unified landing + dashboard */}
           <Route path="student" element={<StudentLandingPage />} />
