@@ -20,10 +20,10 @@ export async function getAssetCategories(req, res) {
             orderBy: { sortOrder: 'asc' }
         });
 
-        res.json(categories);
+        res.json({ success: true, data: categories });
     } catch (error) {
         console.error('Error fetching asset categories:', error);
-        res.status(500).json({ error: 'Failed to fetch asset categories' });
+        res.status(500).json({ success: false, message: 'Failed to fetch asset categories' });
     }
 }
 
@@ -36,7 +36,7 @@ export async function createAssetCategory(req, res) {
         const { name, label } = req.body;
 
         if (!name || !label) {
-            return res.status(400).json({ error: 'Name and label are required' });
+            return res.status(400).json({ success: false, message: 'Name and label are required' });
         }
 
         // Get max sortOrder and add 1
@@ -56,13 +56,13 @@ export async function createAssetCategory(req, res) {
         // Broadcast event
         publishEvent('reports', 'assetCategory.created', { category });
 
-        res.status(201).json(category);
+        res.status(201).json({ success: true, data: category });
     } catch (error) {
         if (error.code === 'P2002') {
-            return res.status(400).json({ error: 'Category with this name already exists' });
+            return res.status(400).json({ success: false, message: 'Category with this name already exists' });
         }
         console.error('Error creating asset category:', error);
-        res.status(500).json({ error: 'Failed to create asset category' });
+        res.status(500).json({ success: false, message: 'Failed to create asset category' });
     }
 }
 
@@ -88,13 +88,13 @@ export async function updateAssetCategory(req, res) {
         // Broadcast event
         publishEvent('reports', 'assetCategory.updated', { category });
 
-        res.json(category);
+        res.json({ success: true, data: category });
     } catch (error) {
         if (error.code === 'P2025') {
-            return res.status(404).json({ error: 'Category not found' });
+            return res.status(404).json({ success: false, message: 'Category not found' });
         }
         console.error('Error updating asset category:', error);
-        res.status(500).json({ error: 'Failed to update asset category' });
+        res.status(500).json({ success: false, message: 'Failed to update asset category' });
     }
 }
 
@@ -113,13 +113,13 @@ export async function deleteAssetCategory(req, res) {
         // Broadcast event
         publishEvent('reports', 'assetCategory.deleted', { categoryId: deletedCategory.id, category: deletedCategory });
 
-        res.json({ message: 'Category deleted successfully' });
+        res.json({ success: true, message: 'Category deleted successfully' });
     } catch (error) {
         if (error.code === 'P2025') {
-            return res.status(404).json({ error: 'Category not found' });
+            return res.status(404).json({ success: false, message: 'Category not found' });
         }
         console.error('Error deleting asset category:', error);
-        res.status(500).json({ error: 'Failed to delete asset category' });
+        res.status(500).json({ success: false, message: 'Failed to delete asset category' });
     }
 }
 
@@ -146,10 +146,10 @@ export async function getLocations(req, res) {
             orderBy: { sortOrder: 'asc' }
         });
 
-        res.json(locations);
+        res.json({ success: true, data: locations });
     } catch (error) {
         console.error('Error fetching locations:', error);
-        res.status(500).json({ error: 'Failed to fetch locations' });
+        res.status(500).json({ success: false, message: 'Failed to fetch locations' });
     }
 }
 
@@ -162,11 +162,11 @@ export async function createLocation(req, res) {
         const { code, name, type, building, mapX, mapY } = req.body;
 
         if (!code || !name || !type) {
-            return res.status(400).json({ error: 'Code, name, and type are required' });
+            return res.status(400).json({ success: false, message: 'Code, name, and type are required' });
         }
 
         if (!['BIN_LOCATION', 'ROOM_LOCATION'].includes(type)) {
-            return res.status(400).json({ error: 'Invalid location type' });
+            return res.status(400).json({ success: false, message: 'Invalid location type' });
         }
 
         // Get max sortOrder for the type and add 1
@@ -193,13 +193,13 @@ export async function createLocation(req, res) {
             location,
         });
 
-        res.status(201).json(location);
+        res.status(201).json({ success: true, data: location });
     } catch (error) {
         if (error.code === 'P2002') {
-            return res.status(400).json({ error: 'Location with this code already exists' });
+            return res.status(400).json({ success: false, message: 'Location with this code already exists' });
         }
         console.error('Error creating location:', error);
-        res.status(500).json({ error: 'Failed to create location' });
+        res.status(500).json({ success: false, message: 'Failed to create location' });
     }
 }
 
@@ -212,8 +212,16 @@ export async function updateLocation(req, res) {
         const { id } = req.params;
         const { code, name, type, building, enabled, sortOrder, mapX, mapY } = req.body;
 
+        const locationId = parseInt(id, 10);
+
+        // Get the old location to check if name changed
+        const oldLocation = await prisma.location.findUnique({
+            where: { id: locationId },
+            select: { name: true }
+        });
+
         const location = await prisma.location.update({
-            where: { id: parseInt(id, 10) },
+            where: { id: locationId },
             data: {
                 ...(code && { code: code.toUpperCase() }),
                 ...(name && { name }),
@@ -226,18 +234,36 @@ export async function updateLocation(req, res) {
             }
         });
 
+        // If name changed, update all reports using the old name
+        if (name && oldLocation && oldLocation.name !== name) {
+            console.log(`   🔄 Location renamed from "${oldLocation.name}" to "${name}". Updating reports...`);
+            const updateResult = await prisma.report.updateMany({
+                where: { location: oldLocation.name },
+                data: { location: name }
+            });
+            console.log(`   ✅ Updated ${updateResult.count} reports with new location name.`);
+
+            // Emit an event to trigger UI refreshes
+            publishEvent('reports', 'location.renamed', {
+                locationId,
+                oldName: oldLocation.name,
+                newName: name,
+                affectedReports: updateResult.count
+            });
+        }
+
         // Broadcast location change event
         publishEvent('reports', 'location.updated', {
             location,
         });
 
-        res.json(location);
+        res.json({ success: true, data: location });
     } catch (error) {
         if (error.code === 'P2025') {
-            return res.status(404).json({ error: 'Location not found' });
+            return res.status(404).json({ success: false, message: 'Location not found' });
         }
         console.error('Error updating location:', error);
-        res.status(500).json({ error: 'Failed to update location' });
+        res.status(500).json({ success: false, message: 'Failed to update location' });
     }
 }
 
@@ -248,9 +274,15 @@ export async function updateLocation(req, res) {
 export async function deleteLocation(req, res) {
     try {
         const { id } = req.params;
+        const locationId = parseInt(id, 10);
+
+        // Delete associated bin status first
+        await prisma.binStatus.deleteMany({
+            where: { locationId }
+        });
 
         const deletedLocation = await prisma.location.delete({
-            where: { id: parseInt(id, 10) }
+            where: { id: locationId }
         });
 
         // Broadcast location delete event
@@ -259,13 +291,13 @@ export async function deleteLocation(req, res) {
             location: deletedLocation,
         });
 
-        res.json({ message: 'Location deleted successfully' });
+        res.json({ success: true, message: 'Location deleted successfully' });
     } catch (error) {
         if (error.code === 'P2025') {
-            return res.status(404).json({ error: 'Location not found' });
+            return res.status(404).json({ success: false, message: 'Location not found' });
         }
         console.error('Error deleting location:', error);
-        res.status(500).json({ error: 'Failed to delete location' });
+        res.status(500).json({ success: false, message: 'Failed to delete location' });
     }
 }
 
@@ -297,10 +329,10 @@ export async function getItemPresets(req, res) {
             }
         });
 
-        res.json(presets);
+        res.json({ success: true, data: presets });
     } catch (error) {
         console.error('Error fetching item presets:', error);
-        res.status(500).json({ error: 'Failed to fetch item presets' });
+        res.status(500).json({ success: false, message: 'Failed to fetch item presets' });
     }
 }
 
@@ -313,14 +345,14 @@ export async function createItemPreset(req, res) {
         const { name, icon, categoryId: rawCategoryId } = req.body;
 
         if (!name || !rawCategoryId) {
-            return res.status(400).json({ error: 'Name and categoryId are required' });
+            return res.status(400).json({ success: false, message: 'Name and categoryId are required' });
         }
 
         // Parse categoryId to integer
         const categoryId = parseInt(rawCategoryId, 10);
 
         if (isNaN(categoryId)) {
-            return res.status(400).json({ error: 'Invalid categoryId' });
+            return res.status(400).json({ success: false, message: 'Invalid categoryId' });
         }
 
         // Verify category exists
@@ -329,7 +361,7 @@ export async function createItemPreset(req, res) {
         });
 
         if (!category) {
-            return res.status(404).json({ error: 'Category not found' });
+            return res.status(404).json({ success: false, message: 'Category not found' });
         }
 
         // Get max sortOrder for the category
@@ -356,10 +388,10 @@ export async function createItemPreset(req, res) {
         // Broadcast event
         publishEvent('reports', 'itemPreset.created', { preset });
 
-        res.status(201).json(preset);
+        res.status(201).json({ success: true, data: preset });
     } catch (error) {
         console.error('Error creating item preset:', error);
-        res.status(500).json({ error: 'Failed to create item preset' });
+        res.status(500).json({ success: false, message: 'Failed to create item preset' });
     }
 }
 
@@ -390,13 +422,13 @@ export async function updateItemPreset(req, res) {
         // Broadcast event
         publishEvent('reports', 'itemPreset.updated', { preset });
 
-        res.json(preset);
+        res.json({ success: true, data: preset });
     } catch (error) {
         if (error.code === 'P2025') {
-            return res.status(404).json({ error: 'Item preset not found' });
+            return res.status(404).json({ success: false, message: 'Item preset not found' });
         }
         console.error('Error updating item preset:', error);
-        res.status(500).json({ error: 'Failed to update item preset' });
+        res.status(500).json({ success: false, message: 'Failed to update item preset' });
     }
 }
 
@@ -415,13 +447,13 @@ export async function deleteItemPreset(req, res) {
         // Broadcast event
         publishEvent('reports', 'itemPreset.deleted', { presetId: deletedPreset.id, preset: deletedPreset });
 
-        res.json({ message: 'Item preset deleted successfully' });
+        res.json({ success: true, message: 'Item preset deleted successfully' });
     } catch (error) {
         if (error.code === 'P2025') {
-            return res.status(404).json({ error: 'Item preset not found' });
+            return res.status(404).json({ success: false, message: 'Item preset not found' });
         }
         console.error('Error deleting item preset:', error);
-        res.status(500).json({ error: 'Failed to delete item preset' });
+        res.status(500).json({ success: false, message: 'Failed to delete item preset' });
     }
 }
 
@@ -493,10 +525,10 @@ export async function getWasteTypes(req, res) {
             orderBy: { sortOrder: 'asc' }
         });
 
-        res.json(wasteTypes);
+        res.json({ success: true, data: wasteTypes });
     } catch (error) {
         console.error('Error fetching waste types:', error);
-        res.status(500).json({ error: 'Failed to fetch waste types' });
+        res.status(500).json({ success: false, message: 'Failed to fetch waste types' });
     }
 }
 
@@ -505,7 +537,7 @@ export async function createWasteType(req, res) {
         const { key, label, emoji } = req.body;
 
         if (!key || !label) {
-            return res.status(400).json({ error: 'Key and label are required' });
+            return res.status(400).json({ success: false, message: 'Key and label are required' });
         }
 
         const maxOrder = await prisma.wasteType.findFirst({
@@ -524,13 +556,13 @@ export async function createWasteType(req, res) {
 
         publishEvent('reports', 'wasteType.created', { wasteType });
 
-        res.status(201).json(wasteType);
+        res.status(201).json({ success: true, data: wasteType });
     } catch (error) {
         if (error.code === 'P2002') {
-            return res.status(400).json({ error: 'Waste type with this key already exists' });
+            return res.status(400).json({ success: false, message: 'Waste type with this key already exists' });
         }
         console.error('Error creating waste type:', error);
-        res.status(500).json({ error: 'Failed to create waste type' });
+        res.status(500).json({ success: false, message: 'Failed to create waste type' });
     }
 }
 
@@ -552,13 +584,13 @@ export async function updateWasteType(req, res) {
 
         publishEvent('reports', 'wasteType.updated', { wasteType });
 
-        res.json(wasteType);
+        res.json({ success: true, data: wasteType });
     } catch (error) {
         if (error.code === 'P2025') {
-            return res.status(404).json({ error: 'Waste type not found' });
+            return res.status(404).json({ success: false, message: 'Waste type not found' });
         }
         console.error('Error updating waste type:', error);
-        res.status(500).json({ error: 'Failed to update waste type' });
+        res.status(500).json({ success: false, message: 'Failed to update waste type' });
     }
 }
 
@@ -575,10 +607,10 @@ export async function deleteWasteType(req, res) {
         res.json({ success: true, message: 'Waste type deleted successfully' });
     } catch (error) {
         if (error.code === 'P2025') {
-            return res.status(404).json({ error: 'Waste type not found' });
+            return res.status(404).json({ success: false, message: 'Waste type not found' });
         }
         console.error('Error deleting waste type:', error);
-        res.status(500).json({ error: 'Failed to delete waste type' });
+        res.status(500).json({ success: false, message: 'Failed to delete waste type' });
     }
 }
 
@@ -595,10 +627,10 @@ export async function getUrgencyLevels(req, res) {
             orderBy: { sortOrder: 'asc' }
         });
 
-        res.json(urgencyLevels);
+        res.json({ success: true, data: urgencyLevels });
     } catch (error) {
         console.error('Error fetching urgency levels:', error);
-        res.status(500).json({ error: 'Failed to fetch urgency levels' });
+        res.status(500).json({ success: false, message: 'Failed to fetch urgency levels' });
     }
 }
 
@@ -607,7 +639,7 @@ export async function createUrgencyLevel(req, res) {
         const { key, label, description, color } = req.body;
 
         if (!key || !label) {
-            return res.status(400).json({ error: 'Key and label are required' });
+            return res.status(400).json({ success: false, message: 'Key and label are required' });
         }
 
         const maxOrder = await prisma.urgencyLevel.findFirst({
@@ -627,13 +659,13 @@ export async function createUrgencyLevel(req, res) {
 
         publishEvent('reports', 'urgencyLevel.created', { urgencyLevel });
 
-        res.status(201).json(urgencyLevel);
+        res.status(201).json({ success: true, data: urgencyLevel });
     } catch (error) {
         if (error.code === 'P2002') {
-            return res.status(400).json({ error: 'Urgency level with this key already exists' });
+            return res.status(400).json({ success: false, message: 'Urgency level with this key already exists' });
         }
         console.error('Error creating urgency level:', error);
-        res.status(500).json({ error: 'Failed to create urgency level' });
+        res.status(500).json({ success: false, message: 'Failed to create urgency level' });
     }
 }
 
@@ -656,13 +688,13 @@ export async function updateUrgencyLevel(req, res) {
 
         publishEvent('reports', 'urgencyLevel.updated', { urgencyLevel });
 
-        res.json(urgencyLevel);
+        res.json({ success: true, data: urgencyLevel });
     } catch (error) {
         if (error.code === 'P2025') {
-            return res.status(404).json({ error: 'Urgency level not found' });
+            return res.status(404).json({ success: false, message: 'Urgency level not found' });
         }
         console.error('Error updating urgency level:', error);
-        res.status(500).json({ error: 'Failed to update urgency level' });
+        res.status(500).json({ success: false, message: 'Failed to update urgency level' });
     }
 }
 
@@ -679,10 +711,10 @@ export async function deleteUrgencyLevel(req, res) {
         res.json({ success: true, message: 'Urgency level deleted successfully' });
     } catch (error) {
         if (error.code === 'P2025') {
-            return res.status(404).json({ error: 'Urgency level not found' });
+            return res.status(404).json({ success: false, message: 'Urgency level not found' });
         }
         console.error('Error deleting urgency level:', error);
-        res.status(500).json({ error: 'Failed to delete urgency level' });
+        res.status(500).json({ success: false, message: 'Failed to delete urgency level' });
     }
 }
 
@@ -699,10 +731,10 @@ export async function getAssetConditions(req, res) {
             orderBy: { sortOrder: 'asc' }
         });
 
-        res.json(assetConditions);
+        res.json({ success: true, data: assetConditions });
     } catch (error) {
         console.error('Error fetching asset conditions:', error);
-        res.status(500).json({ error: 'Failed to fetch asset conditions' });
+        res.status(500).json({ success: false, message: 'Failed to fetch asset conditions' });
     }
 }
 
@@ -711,7 +743,7 @@ export async function createAssetCondition(req, res) {
         const { key, label, description } = req.body;
 
         if (!key || !label) {
-            return res.status(400).json({ error: 'Key and label are required' });
+            return res.status(400).json({ success: false, message: 'Key and label are required' });
         }
 
         const maxOrder = await prisma.assetCondition.findFirst({
@@ -730,13 +762,13 @@ export async function createAssetCondition(req, res) {
 
         publishEvent('reports', 'assetCondition.created', { assetCondition });
 
-        res.status(201).json(assetCondition);
+        res.status(201).json({ success: true, data: assetCondition });
     } catch (error) {
         if (error.code === 'P2002') {
-            return res.status(400).json({ error: 'Asset condition with this key already exists' });
+            return res.status(400).json({ success: false, message: 'Asset condition with this key already exists' });
         }
         console.error('Error creating asset condition:', error);
-        res.status(500).json({ error: 'Failed to create asset condition' });
+        res.status(500).json({ success: false, message: 'Failed to create asset condition' });
     }
 }
 
@@ -758,13 +790,13 @@ export async function updateAssetCondition(req, res) {
 
         publishEvent('reports', 'assetCondition.updated', { assetCondition });
 
-        res.json(assetCondition);
+        res.json({ success: true, data: assetCondition });
     } catch (error) {
         if (error.code === 'P2025') {
-            return res.status(404).json({ error: 'Asset condition not found' });
+            return res.status(404).json({ success: false, message: 'Asset condition not found' });
         }
         console.error('Error updating asset condition:', error);
-        res.status(500).json({ error: 'Failed to update asset condition' });
+        res.status(500).json({ success: false, message: 'Failed to update asset condition' });
     }
 }
 
@@ -781,10 +813,10 @@ export async function deleteAssetCondition(req, res) {
         res.json({ success: true, message: 'Asset condition deleted successfully' });
     } catch (error) {
         if (error.code === 'P2025') {
-            return res.status(404).json({ error: 'Asset condition not found' });
+            return res.status(404).json({ success: false, message: 'Asset condition not found' });
         }
         console.error('Error deleting asset condition:', error);
-        res.status(500).json({ error: 'Failed to delete asset condition' });
+        res.status(500).json({ success: false, message: 'Failed to delete asset condition' });
     }
 }
 

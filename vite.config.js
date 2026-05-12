@@ -17,7 +17,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: fileURLToPath(new URL('./index.html', import.meta.url)),
-        operationalFramework: fileURLToPath(new URL('./operational-framework.html', import.meta.url)),
+        operationalFramework: fileURLToPath(new URL('./others/operational-framework.html', import.meta.url)),
       },
     },
   },

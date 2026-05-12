@@ -6,6 +6,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import realtimeEvents from '../lib/realtimeEvents';
 
 const AuthContext = createContext(null);
 
@@ -35,6 +36,7 @@ export function AuthProvider({ children }) {
                     if (response.success) {
                         console.log('✅ Auth restored for user:', response.data.user.username);
                         setUser(response.data.user);
+                        realtimeEvents.connect();
                     } else {
                         console.warn('⚠️ Token invalid, clearing');
                         api.removeToken();
@@ -68,6 +70,7 @@ export function AuthProvider({ children }) {
             if (response.success) {
                 console.log('✅ Sign in successful for:', response.data.user.username, 'Role:', response.data.user.role);
                 setUser(response.data.user);
+                realtimeEvents.connect();
 
                 // Navigate based on role
                 const redirectPath = ROLE_ROUTES[response.data.user.role] || '/';
@@ -90,6 +93,7 @@ export function AuthProvider({ children }) {
     }, [navigate]);
 
     const signout = useCallback(() => {
+        realtimeEvents.disconnect();
         api.signout();
         setUser(null);
         navigate('/');

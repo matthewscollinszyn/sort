@@ -110,6 +110,14 @@ export const ReportType: {
 export type ReportType = (typeof ReportType)[keyof typeof ReportType]
 
 
+export const AssetAction: {
+  REPAIR: 'REPAIR',
+  DISPOSE: 'DISPOSE'
+};
+
+export type AssetAction = (typeof AssetAction)[keyof typeof AssetAction]
+
+
 export const LocationType: {
   BIN_LOCATION: 'BIN_LOCATION',
   ROOM_LOCATION: 'ROOM_LOCATION'
@@ -130,6 +138,10 @@ export const ReportStatus: typeof $Enums.ReportStatus
 export type ReportType = $Enums.ReportType
 
 export const ReportType: typeof $Enums.ReportType
+
+export type AssetAction = $Enums.AssetAction
+
+export const AssetAction: typeof $Enums.AssetAction
 
 export type LocationType = $Enums.LocationType
 
@@ -3350,6 +3362,7 @@ export namespace Prisma {
     status: $Enums.ReportStatus | null
     assignedStaffId: number | null
     kilosCollected: number | null
+    assetAction: $Enums.AssetAction | null
     collectionDate: Date | null
     userId: number | null
     createdAt: Date | null
@@ -3367,6 +3380,7 @@ export namespace Prisma {
     status: $Enums.ReportStatus | null
     assignedStaffId: number | null
     kilosCollected: number | null
+    assetAction: $Enums.AssetAction | null
     collectionDate: Date | null
     userId: number | null
     createdAt: Date | null
@@ -3384,6 +3398,7 @@ export namespace Prisma {
     status: number
     assignedStaffId: number
     kilosCollected: number
+    assetAction: number
     collectionDate: number
     userId: number
     createdAt: number
@@ -3417,6 +3432,7 @@ export namespace Prisma {
     status?: true
     assignedStaffId?: true
     kilosCollected?: true
+    assetAction?: true
     collectionDate?: true
     userId?: true
     createdAt?: true
@@ -3434,6 +3450,7 @@ export namespace Prisma {
     status?: true
     assignedStaffId?: true
     kilosCollected?: true
+    assetAction?: true
     collectionDate?: true
     userId?: true
     createdAt?: true
@@ -3451,6 +3468,7 @@ export namespace Prisma {
     status?: true
     assignedStaffId?: true
     kilosCollected?: true
+    assetAction?: true
     collectionDate?: true
     userId?: true
     createdAt?: true
@@ -3555,6 +3573,7 @@ export namespace Prisma {
     status: $Enums.ReportStatus
     assignedStaffId: number | null
     kilosCollected: number | null
+    assetAction: $Enums.AssetAction | null
     collectionDate: Date | null
     userId: number
     createdAt: Date
@@ -3591,6 +3610,7 @@ export namespace Prisma {
     status?: boolean
     assignedStaffId?: boolean
     kilosCollected?: boolean
+    assetAction?: boolean
     collectionDate?: boolean
     userId?: boolean
     createdAt?: boolean
@@ -3610,6 +3630,7 @@ export namespace Prisma {
     status?: boolean
     assignedStaffId?: boolean
     kilosCollected?: boolean
+    assetAction?: boolean
     collectionDate?: boolean
     userId?: boolean
     createdAt?: boolean
@@ -3629,6 +3650,7 @@ export namespace Prisma {
     status?: boolean
     assignedStaffId?: boolean
     kilosCollected?: boolean
+    assetAction?: boolean
     collectionDate?: boolean
     userId?: boolean
     createdAt?: boolean
@@ -3648,13 +3670,14 @@ export namespace Prisma {
     status?: boolean
     assignedStaffId?: boolean
     kilosCollected?: boolean
+    assetAction?: boolean
     collectionDate?: boolean
     userId?: boolean
     createdAt?: boolean
     updatedAt?: boolean
   }
 
-  export type ReportOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "location" | "notes" | "photoUrl" | "urgency" | "wasteType" | "type" | "status" | "assignedStaffId" | "kilosCollected" | "collectionDate" | "userId" | "createdAt" | "updatedAt", ExtArgs["result"]["report"]>
+  export type ReportOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "location" | "notes" | "photoUrl" | "urgency" | "wasteType" | "type" | "status" | "assignedStaffId" | "kilosCollected" | "assetAction" | "collectionDate" | "userId" | "createdAt" | "updatedAt", ExtArgs["result"]["report"]>
   export type ReportInclude<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     user?: boolean | UserDefaultArgs<ExtArgs>
     assignedStaff?: boolean | Report$assignedStaffArgs<ExtArgs>
@@ -3685,6 +3708,7 @@ export namespace Prisma {
       status: $Enums.ReportStatus
       assignedStaffId: number | null
       kilosCollected: number | null
+      assetAction: $Enums.AssetAction | null
       collectionDate: Date | null
       userId: number
       createdAt: Date
@@ -4124,6 +4148,7 @@ export namespace Prisma {
     readonly status: FieldRef<"Report", 'ReportStatus'>
     readonly assignedStaffId: FieldRef<"Report", 'Int'>
     readonly kilosCollected: FieldRef<"Report", 'Float'>
+    readonly assetAction: FieldRef<"Report", 'AssetAction'>
     readonly collectionDate: FieldRef<"Report", 'DateTime'>
     readonly userId: FieldRef<"Report", 'Int'>
     readonly createdAt: FieldRef<"Report", 'DateTime'>
@@ -15564,6 +15589,7 @@ export namespace Prisma {
     status: 'status',
     assignedStaffId: 'assignedStaffId',
     kilosCollected: 'kilosCollected',
+    assetAction: 'assetAction',
     collectionDate: 'collectionDate',
     userId: 'userId',
     createdAt: 'createdAt',
@@ -15841,6 +15867,20 @@ export namespace Prisma {
 
 
   /**
+   * Reference to a field of type 'AssetAction'
+   */
+  export type EnumAssetActionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AssetAction'>
+    
+
+
+  /**
+   * Reference to a field of type 'AssetAction[]'
+   */
+  export type ListEnumAssetActionFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'AssetAction[]'>
+    
+
+
+  /**
    * Reference to a field of type 'Boolean'
    */
   export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
@@ -15996,6 +16036,7 @@ export namespace Prisma {
     status?: EnumReportStatusFilter<"Report"> | $Enums.ReportStatus
     assignedStaffId?: IntNullableFilter<"Report"> | number | null
     kilosCollected?: FloatNullableFilter<"Report"> | number | null
+    assetAction?: EnumAssetActionNullableFilter<"Report"> | $Enums.AssetAction | null
     collectionDate?: DateTimeNullableFilter<"Report"> | Date | string | null
     userId?: IntFilter<"Report"> | number
     createdAt?: DateTimeFilter<"Report"> | Date | string
@@ -16015,6 +16056,7 @@ export namespace Prisma {
     status?: SortOrder
     assignedStaffId?: SortOrderInput | SortOrder
     kilosCollected?: SortOrderInput | SortOrder
+    assetAction?: SortOrderInput | SortOrder
     collectionDate?: SortOrderInput | SortOrder
     userId?: SortOrder
     createdAt?: SortOrder
@@ -16037,6 +16079,7 @@ export namespace Prisma {
     status?: EnumReportStatusFilter<"Report"> | $Enums.ReportStatus
     assignedStaffId?: IntNullableFilter<"Report"> | number | null
     kilosCollected?: FloatNullableFilter<"Report"> | number | null
+    assetAction?: EnumAssetActionNullableFilter<"Report"> | $Enums.AssetAction | null
     collectionDate?: DateTimeNullableFilter<"Report"> | Date | string | null
     userId?: IntFilter<"Report"> | number
     createdAt?: DateTimeFilter<"Report"> | Date | string
@@ -16056,6 +16099,7 @@ export namespace Prisma {
     status?: SortOrder
     assignedStaffId?: SortOrderInput | SortOrder
     kilosCollected?: SortOrderInput | SortOrder
+    assetAction?: SortOrderInput | SortOrder
     collectionDate?: SortOrderInput | SortOrder
     userId?: SortOrder
     createdAt?: SortOrder
@@ -16081,6 +16125,7 @@ export namespace Prisma {
     status?: EnumReportStatusWithAggregatesFilter<"Report"> | $Enums.ReportStatus
     assignedStaffId?: IntNullableWithAggregatesFilter<"Report"> | number | null
     kilosCollected?: FloatNullableWithAggregatesFilter<"Report"> | number | null
+    assetAction?: EnumAssetActionNullableWithAggregatesFilter<"Report"> | $Enums.AssetAction | null
     collectionDate?: DateTimeNullableWithAggregatesFilter<"Report"> | Date | string | null
     userId?: IntWithAggregatesFilter<"Report"> | number
     createdAt?: DateTimeWithAggregatesFilter<"Report"> | Date | string
@@ -16937,6 +16982,7 @@ export namespace Prisma {
     type?: $Enums.ReportType
     status?: $Enums.ReportStatus
     kilosCollected?: number | null
+    assetAction?: $Enums.AssetAction | null
     collectionDate?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -16955,6 +17001,7 @@ export namespace Prisma {
     status?: $Enums.ReportStatus
     assignedStaffId?: number | null
     kilosCollected?: number | null
+    assetAction?: $Enums.AssetAction | null
     collectionDate?: Date | string | null
     userId: number
     createdAt?: Date | string
@@ -16970,6 +17017,7 @@ export namespace Prisma {
     type?: EnumReportTypeFieldUpdateOperationsInput | $Enums.ReportType
     status?: EnumReportStatusFieldUpdateOperationsInput | $Enums.ReportStatus
     kilosCollected?: NullableFloatFieldUpdateOperationsInput | number | null
+    assetAction?: NullableEnumAssetActionFieldUpdateOperationsInput | $Enums.AssetAction | null
     collectionDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -16988,6 +17036,7 @@ export namespace Prisma {
     status?: EnumReportStatusFieldUpdateOperationsInput | $Enums.ReportStatus
     assignedStaffId?: NullableIntFieldUpdateOperationsInput | number | null
     kilosCollected?: NullableFloatFieldUpdateOperationsInput | number | null
+    assetAction?: NullableEnumAssetActionFieldUpdateOperationsInput | $Enums.AssetAction | null
     collectionDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     userId?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -17005,6 +17054,7 @@ export namespace Prisma {
     status?: $Enums.ReportStatus
     assignedStaffId?: number | null
     kilosCollected?: number | null
+    assetAction?: $Enums.AssetAction | null
     collectionDate?: Date | string | null
     userId: number
     createdAt?: Date | string
@@ -17020,6 +17070,7 @@ export namespace Prisma {
     type?: EnumReportTypeFieldUpdateOperationsInput | $Enums.ReportType
     status?: EnumReportStatusFieldUpdateOperationsInput | $Enums.ReportStatus
     kilosCollected?: NullableFloatFieldUpdateOperationsInput | number | null
+    assetAction?: NullableEnumAssetActionFieldUpdateOperationsInput | $Enums.AssetAction | null
     collectionDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -17036,6 +17087,7 @@ export namespace Prisma {
     status?: EnumReportStatusFieldUpdateOperationsInput | $Enums.ReportStatus
     assignedStaffId?: NullableIntFieldUpdateOperationsInput | number | null
     kilosCollected?: NullableFloatFieldUpdateOperationsInput | number | null
+    assetAction?: NullableEnumAssetActionFieldUpdateOperationsInput | $Enums.AssetAction | null
     collectionDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     userId?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -18049,6 +18101,13 @@ export namespace Prisma {
     not?: NestedFloatNullableFilter<$PrismaModel> | number | null
   }
 
+  export type EnumAssetActionNullableFilter<$PrismaModel = never> = {
+    equals?: $Enums.AssetAction | EnumAssetActionFieldRefInput<$PrismaModel> | null
+    in?: $Enums.AssetAction[] | ListEnumAssetActionFieldRefInput<$PrismaModel> | null
+    notIn?: $Enums.AssetAction[] | ListEnumAssetActionFieldRefInput<$PrismaModel> | null
+    not?: NestedEnumAssetActionNullableFilter<$PrismaModel> | $Enums.AssetAction | null
+  }
+
   export type DateTimeNullableFilter<$PrismaModel = never> = {
     equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
     in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
@@ -18081,6 +18140,7 @@ export namespace Prisma {
     status?: SortOrder
     assignedStaffId?: SortOrder
     kilosCollected?: SortOrder
+    assetAction?: SortOrder
     collectionDate?: SortOrder
     userId?: SortOrder
     createdAt?: SortOrder
@@ -18105,6 +18165,7 @@ export namespace Prisma {
     status?: SortOrder
     assignedStaffId?: SortOrder
     kilosCollected?: SortOrder
+    assetAction?: SortOrder
     collectionDate?: SortOrder
     userId?: SortOrder
     createdAt?: SortOrder
@@ -18122,6 +18183,7 @@ export namespace Prisma {
     status?: SortOrder
     assignedStaffId?: SortOrder
     kilosCollected?: SortOrder
+    assetAction?: SortOrder
     collectionDate?: SortOrder
     userId?: SortOrder
     createdAt?: SortOrder
@@ -18185,6 +18247,16 @@ export namespace Prisma {
     _sum?: NestedFloatNullableFilter<$PrismaModel>
     _min?: NestedFloatNullableFilter<$PrismaModel>
     _max?: NestedFloatNullableFilter<$PrismaModel>
+  }
+
+  export type EnumAssetActionNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.AssetAction | EnumAssetActionFieldRefInput<$PrismaModel> | null
+    in?: $Enums.AssetAction[] | ListEnumAssetActionFieldRefInput<$PrismaModel> | null
+    notIn?: $Enums.AssetAction[] | ListEnumAssetActionFieldRefInput<$PrismaModel> | null
+    not?: NestedEnumAssetActionNullableWithAggregatesFilter<$PrismaModel> | $Enums.AssetAction | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedEnumAssetActionNullableFilter<$PrismaModel>
+    _max?: NestedEnumAssetActionNullableFilter<$PrismaModel>
   }
 
   export type DateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
@@ -18862,6 +18934,10 @@ export namespace Prisma {
     divide?: number
   }
 
+  export type NullableEnumAssetActionFieldUpdateOperationsInput = {
+    set?: $Enums.AssetAction | null
+  }
+
   export type NullableDateTimeFieldUpdateOperationsInput = {
     set?: Date | string | null
   }
@@ -19150,6 +19226,13 @@ export namespace Prisma {
     not?: NestedFloatNullableFilter<$PrismaModel> | number | null
   }
 
+  export type NestedEnumAssetActionNullableFilter<$PrismaModel = never> = {
+    equals?: $Enums.AssetAction | EnumAssetActionFieldRefInput<$PrismaModel> | null
+    in?: $Enums.AssetAction[] | ListEnumAssetActionFieldRefInput<$PrismaModel> | null
+    notIn?: $Enums.AssetAction[] | ListEnumAssetActionFieldRefInput<$PrismaModel> | null
+    not?: NestedEnumAssetActionNullableFilter<$PrismaModel> | $Enums.AssetAction | null
+  }
+
   export type NestedDateTimeNullableFilter<$PrismaModel = never> = {
     equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
     in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
@@ -19213,6 +19296,16 @@ export namespace Prisma {
     _max?: NestedFloatNullableFilter<$PrismaModel>
   }
 
+  export type NestedEnumAssetActionNullableWithAggregatesFilter<$PrismaModel = never> = {
+    equals?: $Enums.AssetAction | EnumAssetActionFieldRefInput<$PrismaModel> | null
+    in?: $Enums.AssetAction[] | ListEnumAssetActionFieldRefInput<$PrismaModel> | null
+    notIn?: $Enums.AssetAction[] | ListEnumAssetActionFieldRefInput<$PrismaModel> | null
+    not?: NestedEnumAssetActionNullableWithAggregatesFilter<$PrismaModel> | $Enums.AssetAction | null
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedEnumAssetActionNullableFilter<$PrismaModel>
+    _max?: NestedEnumAssetActionNullableFilter<$PrismaModel>
+  }
+
   export type NestedDateTimeNullableWithAggregatesFilter<$PrismaModel = never> = {
     equals?: Date | string | DateTimeFieldRefInput<$PrismaModel> | null
     in?: Date[] | string[] | ListDateTimeFieldRefInput<$PrismaModel> | null
@@ -19266,6 +19359,7 @@ export namespace Prisma {
     type?: $Enums.ReportType
     status?: $Enums.ReportStatus
     kilosCollected?: number | null
+    assetAction?: $Enums.AssetAction | null
     collectionDate?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -19283,6 +19377,7 @@ export namespace Prisma {
     status?: $Enums.ReportStatus
     assignedStaffId?: number | null
     kilosCollected?: number | null
+    assetAction?: $Enums.AssetAction | null
     collectionDate?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -19307,6 +19402,7 @@ export namespace Prisma {
     type?: $Enums.ReportType
     status?: $Enums.ReportStatus
     kilosCollected?: number | null
+    assetAction?: $Enums.AssetAction | null
     collectionDate?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -19323,6 +19419,7 @@ export namespace Prisma {
     type?: $Enums.ReportType
     status?: $Enums.ReportStatus
     kilosCollected?: number | null
+    assetAction?: $Enums.AssetAction | null
     collectionDate?: Date | string | null
     userId: number
     createdAt?: Date | string
@@ -19398,6 +19495,7 @@ export namespace Prisma {
     status?: EnumReportStatusFilter<"Report"> | $Enums.ReportStatus
     assignedStaffId?: IntNullableFilter<"Report"> | number | null
     kilosCollected?: FloatNullableFilter<"Report"> | number | null
+    assetAction?: EnumAssetActionNullableFilter<"Report"> | $Enums.AssetAction | null
     collectionDate?: DateTimeNullableFilter<"Report"> | Date | string | null
     userId?: IntFilter<"Report"> | number
     createdAt?: DateTimeFilter<"Report"> | Date | string
@@ -19868,6 +19966,7 @@ export namespace Prisma {
     status?: $Enums.ReportStatus
     assignedStaffId?: number | null
     kilosCollected?: number | null
+    assetAction?: $Enums.AssetAction | null
     collectionDate?: Date | string | null
     createdAt?: Date | string
     updatedAt?: Date | string
@@ -19883,6 +19982,7 @@ export namespace Prisma {
     type?: $Enums.ReportType
     status?: $Enums.ReportStatus
     kilosCollected?: number | null
+    assetAction?: $Enums.AssetAction | null
     collectionDate?: Date | string | null
     userId: number
     createdAt?: Date | string
@@ -19908,6 +20008,7 @@ export namespace Prisma {
     type?: EnumReportTypeFieldUpdateOperationsInput | $Enums.ReportType
     status?: EnumReportStatusFieldUpdateOperationsInput | $Enums.ReportStatus
     kilosCollected?: NullableFloatFieldUpdateOperationsInput | number | null
+    assetAction?: NullableEnumAssetActionFieldUpdateOperationsInput | $Enums.AssetAction | null
     collectionDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -19925,6 +20026,7 @@ export namespace Prisma {
     status?: EnumReportStatusFieldUpdateOperationsInput | $Enums.ReportStatus
     assignedStaffId?: NullableIntFieldUpdateOperationsInput | number | null
     kilosCollected?: NullableFloatFieldUpdateOperationsInput | number | null
+    assetAction?: NullableEnumAssetActionFieldUpdateOperationsInput | $Enums.AssetAction | null
     collectionDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -19941,6 +20043,7 @@ export namespace Prisma {
     status?: EnumReportStatusFieldUpdateOperationsInput | $Enums.ReportStatus
     assignedStaffId?: NullableIntFieldUpdateOperationsInput | number | null
     kilosCollected?: NullableFloatFieldUpdateOperationsInput | number | null
+    assetAction?: NullableEnumAssetActionFieldUpdateOperationsInput | $Enums.AssetAction | null
     collectionDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -19955,6 +20058,7 @@ export namespace Prisma {
     type?: EnumReportTypeFieldUpdateOperationsInput | $Enums.ReportType
     status?: EnumReportStatusFieldUpdateOperationsInput | $Enums.ReportStatus
     kilosCollected?: NullableFloatFieldUpdateOperationsInput | number | null
+    assetAction?: NullableEnumAssetActionFieldUpdateOperationsInput | $Enums.AssetAction | null
     collectionDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -19971,6 +20075,7 @@ export namespace Prisma {
     type?: EnumReportTypeFieldUpdateOperationsInput | $Enums.ReportType
     status?: EnumReportStatusFieldUpdateOperationsInput | $Enums.ReportStatus
     kilosCollected?: NullableFloatFieldUpdateOperationsInput | number | null
+    assetAction?: NullableEnumAssetActionFieldUpdateOperationsInput | $Enums.AssetAction | null
     collectionDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     userId?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
@@ -19987,6 +20092,7 @@ export namespace Prisma {
     type?: EnumReportTypeFieldUpdateOperationsInput | $Enums.ReportType
     status?: EnumReportStatusFieldUpdateOperationsInput | $Enums.ReportStatus
     kilosCollected?: NullableFloatFieldUpdateOperationsInput | number | null
+    assetAction?: NullableEnumAssetActionFieldUpdateOperationsInput | $Enums.AssetAction | null
     collectionDate?: NullableDateTimeFieldUpdateOperationsInput | Date | string | null
     userId?: IntFieldUpdateOperationsInput | number
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string

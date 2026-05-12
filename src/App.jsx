@@ -9,12 +9,12 @@ import { AuthProvider } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import LandingPage from './pages/LandingPage';
 import Dashboard from './pages/Dashboard';
-import StudentLandingPage from './pages/StudentLandingPage';
-import TeacherLandingPage from './pages/TeacherLandingPage';
-import AdminDashboard from './pages/AdminDashboard';
-import AdminSignIn from './pages/AdminSignIn';
-import MRFSignIn from './pages/MRFSignIn';
-import MRFStaffDashboard from './pages/MRFStaffDashboard';
+import StudentLandingPage from './pages/student/StudentLandingPage';
+import TeacherLandingPage from './pages/teacher/TeacherLandingPage';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminSignIn from './pages/admin/AdminSignIn';
+import MRFSignIn from './pages/mrf/MRFSignIn';
+import MRFStaffDashboard from './pages/mrf/MRFStaffDashboard';
 import './App.css';
 
 export default function App() {

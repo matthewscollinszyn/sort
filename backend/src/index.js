@@ -6,6 +6,7 @@ import newsRoutes from './routes/news.js';
 import reportRoutes from './routes/reports.js';
 import settingsRoutes from './routes/settings.js';
 import mapRoutes from './routes/map.js';
+import { startCleanupTask } from './lib/cleanup.js';
 
 dotenv.config();
 
@@ -48,8 +49,10 @@ app.use((err, req, res, next) => {
     });
 });
 
-const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
+const server = app.listen(PORT, 'localhost', () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    // Start automatic report cleanup task
+    startCleanupTask();
 });
 
 server.on('error', (err) => {

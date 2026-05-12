@@ -1,15 +1,25 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import realtimeEvents from '../lib/realtimeEvents';
+
+// Helper to extract data from API response (handles both {success, data} and raw array)
+const extractData = (response) => {
+    if (!response) return [];
+    if (response.success && Array.isArray(response.data)) return response.data;
+    if (Array.isArray(response)) return response;
+    return [];
+};
 
 export function useAssetCategories() {
     const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const loadCategories = async () => {
+    const loadCategories = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await api.getAssetCategories();
+            const response = await api.getAssetCategories();
+            const data = extractData(response);
             setCategories(data);
             setError(null);
         } catch (err) {
@@ -26,45 +36,34 @@ export function useAssetCategories() {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         loadCategories();
 
-        // Set up SSE listener for category changes
         const token = api.getToken?.();
-        if (token) {
-            const eventSource = new EventSource(`/api/reports/stream?token=${encodeURIComponent(token)}`);
+        if (!token) return;
 
-            const handleCategoryChange = () => {
-                loadCategories();
-            };
+        const unsub1 = realtimeEvents.subscribe('assetCategory.created', loadCategories);
+        const unsub2 = realtimeEvents.subscribe('assetCategory.updated', loadCategories);
+        const unsub3 = realtimeEvents.subscribe('assetCategory.deleted', loadCategories);
 
-            eventSource.addEventListener('assetCategory.created', handleCategoryChange);
-            eventSource.addEventListener('assetCategory.updated', handleCategoryChange);
-            eventSource.addEventListener('assetCategory.deleted', handleCategoryChange);
-
-            return () => {
-                eventSource.removeEventListener('assetCategory.created', handleCategoryChange);
-                eventSource.removeEventListener('assetCategory.updated', handleCategoryChange);
-                eventSource.removeEventListener('assetCategory.deleted', handleCategoryChange);
-                eventSource.close();
-            };
-        }
-    }, []);
+        return () => { unsub1(); unsub2(); unsub3(); };
+    }, [loadCategories]);
 
     return { categories, loading, error, refresh: loadCategories };
 }
 
-export function useItemPresets() {
+export function useItemPresets(categoryId) {
     const [presets, setPresets] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const loadPresets = async () => {
+    const loadPresets = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await api.getItemPresets();
+            const response = await api.getItemPresets(categoryId);
+            const data = extractData(response);
             setPresets(data);
             setError(null);
         } catch (err) {
@@ -74,32 +73,20 @@ export function useItemPresets() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [categoryId]);
 
     useEffect(() => {
         loadPresets();
 
-        // Set up SSE listener for preset changes
         const token = api.getToken?.();
-        if (token) {
-            const eventSource = new EventSource(`/api/reports/stream?token=${encodeURIComponent(token)}`);
+        if (!token) return;
 
-            const handlePresetChange = () => {
-                loadPresets();
-            };
+        const unsub1 = realtimeEvents.subscribe('itemPreset.created', loadPresets);
+        const unsub2 = realtimeEvents.subscribe('itemPreset.updated', loadPresets);
+        const unsub3 = realtimeEvents.subscribe('itemPreset.deleted', loadPresets);
 
-            eventSource.addEventListener('itemPreset.created', handlePresetChange);
-            eventSource.addEventListener('itemPreset.updated', handlePresetChange);
-            eventSource.addEventListener('itemPreset.deleted', handlePresetChange);
-
-            return () => {
-                eventSource.removeEventListener('itemPreset.created', handlePresetChange);
-                eventSource.removeEventListener('itemPreset.updated', handlePresetChange);
-                eventSource.removeEventListener('itemPreset.deleted', handlePresetChange);
-                eventSource.close();
-            };
-        }
-    }, []);
+        return () => { unsub1(); unsub2(); unsub3(); };
+    }, [loadPresets]);
 
     return { presets, loading, error, refresh: loadPresets };
 }
@@ -109,10 +96,11 @@ export function useLocations(type) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const loadLocations = async () => {
+    const loadLocations = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await api.getLocations(type);
+            const response = await api.getLocations(type);
+            const data = extractData(response);
             setLocations(data);
             setError(null);
         } catch (err) {
@@ -153,39 +141,23 @@ export function useLocations(type) {
         } finally {
             setLoading(false);
         }
-    };
+    }, [type]);
 
     useEffect(() => {
         loadLocations();
 
-        // Set up SSE listener for location changes
         const token = api.getToken?.();
-        if (token) {
-            const eventSource = new EventSource(`/api/reports/stream?token=${encodeURIComponent(token)}`);
+        if (!token) return;
 
-            const handleLocationChange = () => {
-                loadLocations();
-            };
+        const unsub1 = realtimeEvents.subscribe('location.created', loadLocations);
+        const unsub2 = realtimeEvents.subscribe('location.updated', loadLocations);
+        const unsub3 = realtimeEvents.subscribe('location.deleted', loadLocations);
 
-            eventSource.addEventListener('location.created', handleLocationChange);
-            eventSource.addEventListener('location.updated', handleLocationChange);
-            eventSource.addEventListener('location.deleted', handleLocationChange);
-
-            return () => {
-                eventSource.removeEventListener('location.created', handleLocationChange);
-                eventSource.removeEventListener('location.updated', handleLocationChange);
-                eventSource.removeEventListener('location.deleted', handleLocationChange);
-                eventSource.close();
-            };
-        }
-    }, [type]);
+        return () => { unsub1(); unsub2(); unsub3(); };
+    }, [loadLocations]);
 
     return { locations, loading, error, refresh: loadLocations };
 }
-
-// ════════════════════════════════════════════════════════════
-// WASTE TYPES HOOK
-// ════════════════════════════════════════════════════════════
 
 export function useWasteTypes() {
     const [wasteTypes, setWasteTypes] = useState([]);
@@ -195,12 +167,20 @@ export function useWasteTypes() {
     const loadWasteTypes = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await api.get('/settings/waste-types');
+            const response = await api.get('/settings/waste-types');
+            const data = extractData(response);
             setWasteTypes(data);
             setError(null);
         } catch (err) {
             console.error('Error loading waste types:', err);
             setError(err.message);
+            // Fallback for safety
+            setWasteTypes([
+                { key: 'recyclable', label: 'Recyclable', emoji: '♻️', enabled: true },
+                { key: 'biodegradable', label: 'Biodegradable', emoji: '🌿', enabled: true },
+                { key: 'residual', label: 'Residual', emoji: '🗑️', enabled: true },
+                { key: 'hazardous', label: 'Special/Hazardous', emoji: '☣️', enabled: true },
+            ]);
         } finally {
             setLoading(false);
         }
@@ -210,35 +190,19 @@ export function useWasteTypes() {
         loadWasteTypes();
     }, [loadWasteTypes]);
 
-    // Real-time synchronization
     useEffect(() => {
-        const token = localStorage.getItem('token');
+        const token = api.getToken();
         if (!token) return;
 
-        const eventSource = new EventSource(`${api.baseUrl}/reports/stream?token=${token}`);
+        const unsub1 = realtimeEvents.subscribe('wasteType.created', loadWasteTypes);
+        const unsub2 = realtimeEvents.subscribe('wasteType.updated', loadWasteTypes);
+        const unsub3 = realtimeEvents.subscribe('wasteType.deleted', loadWasteTypes);
 
-        const handleWasteTypeChange = () => {
-            loadWasteTypes();
-        };
-
-        eventSource.addEventListener('wasteType.created', handleWasteTypeChange);
-        eventSource.addEventListener('wasteType.updated', handleWasteTypeChange);
-        eventSource.addEventListener('wasteType.deleted', handleWasteTypeChange);
-
-        return () => {
-            eventSource.removeEventListener('wasteType.created', handleWasteTypeChange);
-            eventSource.removeEventListener('wasteType.updated', handleWasteTypeChange);
-            eventSource.removeEventListener('wasteType.deleted', handleWasteTypeChange);
-            eventSource.close();
-        };
+        return () => { unsub1(); unsub2(); unsub3(); };
     }, [loadWasteTypes]);
 
     return { wasteTypes, loading, error, refresh: loadWasteTypes };
 }
-
-// ════════════════════════════════════════════════════════════
-// URGENCY LEVELS HOOK
-// ════════════════════════════════════════════════════════════
 
 export function useUrgencyLevels() {
     const [urgencyLevels, setUrgencyLevels] = useState([]);
@@ -248,12 +212,19 @@ export function useUrgencyLevels() {
     const loadUrgencyLevels = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await api.get('/settings/urgency-levels');
+            const response = await api.get('/settings/urgency-levels');
+            const data = extractData(response);
             setUrgencyLevels(data);
             setError(null);
         } catch (err) {
             console.error('Error loading urgency levels:', err);
             setError(err.message);
+            // Fallback for safety
+            setUrgencyLevels([
+                { key: 'low', label: 'Low', color: 'border-slate-400 bg-slate-100 text-slate-500', enabled: true },
+                { key: 'normal', label: 'Normal', color: 'border-amber-500/30 bg-amber-400/10 text-amber-400', enabled: true },
+                { key: 'high', label: 'Urgent', color: 'border-red-500/30 bg-red-400/10 text-red-400', enabled: true },
+            ]);
         } finally {
             setLoading(false);
         }
@@ -263,35 +234,19 @@ export function useUrgencyLevels() {
         loadUrgencyLevels();
     }, [loadUrgencyLevels]);
 
-    // Real-time synchronization
     useEffect(() => {
-        const token = localStorage.getItem('token');
+        const token = api.getToken();
         if (!token) return;
 
-        const eventSource = new EventSource(`${api.baseUrl}/reports/stream?token=${token}`);
+        const unsub1 = realtimeEvents.subscribe('urgencyLevel.created', loadUrgencyLevels);
+        const unsub2 = realtimeEvents.subscribe('urgencyLevel.updated', loadUrgencyLevels);
+        const unsub3 = realtimeEvents.subscribe('urgencyLevel.deleted', loadUrgencyLevels);
 
-        const handleUrgencyLevelChange = () => {
-            loadUrgencyLevels();
-        };
-
-        eventSource.addEventListener('urgencyLevel.created', handleUrgencyLevelChange);
-        eventSource.addEventListener('urgencyLevel.updated', handleUrgencyLevelChange);
-        eventSource.addEventListener('urgencyLevel.deleted', handleUrgencyLevelChange);
-
-        return () => {
-            eventSource.removeEventListener('urgencyLevel.created', handleUrgencyLevelChange);
-            eventSource.removeEventListener('urgencyLevel.updated', handleUrgencyLevelChange);
-            eventSource.removeEventListener('urgencyLevel.deleted', handleUrgencyLevelChange);
-            eventSource.close();
-        };
+        return () => { unsub1(); unsub2(); unsub3(); };
     }, [loadUrgencyLevels]);
 
     return { urgencyLevels, loading, error, refresh: loadUrgencyLevels };
 }
-
-// ════════════════════════════════════════════════════════════
-// ASSET CONDITIONS HOOK
-// ════════════════════════════════════════════════════════════
 
 export function useAssetConditions() {
     const [assetConditions, setAssetConditions] = useState([]);
@@ -301,12 +256,20 @@ export function useAssetConditions() {
     const loadAssetConditions = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await api.get('/settings/asset-conditions');
+            const response = await api.get('/settings/asset-conditions');
+            const data = extractData(response);
             setAssetConditions(data);
             setError(null);
         } catch (err) {
             console.error('Error loading asset conditions:', err);
             setError(err.message);
+            // Fallback for safety
+            setAssetConditions([
+                { key: 'damaged', label: 'Damaged', enabled: true },
+                { key: 'malfunctioning', label: 'Malfunctioning', enabled: true },
+                { key: 'worn', label: 'Worn Out', enabled: true },
+                { key: 'missing', label: 'Missing Parts', enabled: true },
+            ]);
         } finally {
             setLoading(false);
         }
@@ -316,27 +279,15 @@ export function useAssetConditions() {
         loadAssetConditions();
     }, [loadAssetConditions]);
 
-    // Real-time synchronization
     useEffect(() => {
-        const token = localStorage.getItem('token');
+        const token = api.getToken();
         if (!token) return;
 
-        const eventSource = new EventSource(`${api.baseUrl}/reports/stream?token=${token}`);
+        const unsub1 = realtimeEvents.subscribe('assetCondition.created', loadAssetConditions);
+        const unsub2 = realtimeEvents.subscribe('assetCondition.updated', loadAssetConditions);
+        const unsub3 = realtimeEvents.subscribe('assetCondition.deleted', loadAssetConditions);
 
-        const handleAssetConditionChange = () => {
-            loadAssetConditions();
-        };
-
-        eventSource.addEventListener('assetCondition.created', handleAssetConditionChange);
-        eventSource.addEventListener('assetCondition.updated', handleAssetConditionChange);
-        eventSource.addEventListener('assetCondition.deleted', handleAssetConditionChange);
-
-        return () => {
-            eventSource.removeEventListener('assetCondition.created', handleAssetConditionChange);
-            eventSource.removeEventListener('assetCondition.updated', handleAssetConditionChange);
-            eventSource.removeEventListener('assetCondition.deleted', handleAssetConditionChange);
-            eventSource.close();
-        };
+        return () => { unsub1(); unsub2(); unsub3(); };
     }, [loadAssetConditions]);
 
     return { assetConditions, loading, error, refresh: loadAssetConditions };

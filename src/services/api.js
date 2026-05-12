@@ -7,46 +7,38 @@ class ApiService {
         this.storage = this.getStorage();
     }
 
-    // Determine which storage to use - use localStorage for persistence across tabs
+    // Determine which storage to use - use sessionStorage for per-tab sessions
     getStorage() {
         try {
             const test = '__test__';
-            localStorage.setItem(test, test);
-            localStorage.removeItem(test);
-            return localStorage;
-        } catch (e) {
-            // Fallback to sessionStorage if localStorage is blocked
+            sessionStorage.setItem(test, test);
+            sessionStorage.removeItem(test);
             return sessionStorage;
+        } catch (e) {
+            // Fallback to localStorage if sessionStorage is blocked
+            return localStorage;
         }
     }
 
     getToken() {
-        // Try localStorage first, then sessionStorage as fallback
-        return localStorage.getItem('token') || sessionStorage.getItem('token');
+        // Try sessionStorage first (per-tab session), then fallback to localStorage (legacy/persistence)
+        return sessionStorage.getItem('token') || localStorage.getItem('token');
     }
 
     setToken(token) {
-        // Store in both for maximum compatibility
-        try {
-            localStorage.setItem('token', token);
-        } catch (e) {
-            console.warn('localStorage unavailable, using sessionStorage');
-        }
+        // Always store in sessionStorage for per-tab isolation
         sessionStorage.setItem('token', token);
+        // Optionally store in localStorage for persistence across tab closes if desired,
+        // but for TRUE multi-session isolation, we should probably stick to sessionStorage.
+        // The user asked for multiple sessions, so we'll stay with sessionStorage for updates.
     }
 
     removeToken() {
-        // Clear from both storages
+        sessionStorage.removeItem('token');
+        // Also clear from localStorage to ensure full logout
         try {
             localStorage.removeItem('token');
-        } catch (e) {
-            // Ignore
-        }
-        try {
-            sessionStorage.removeItem('token');
-        } catch (e) {
-            // Ignore
-        }
+        } catch (e) { /* ignore */ }
     }
 
     async request(endpoint, options = {}) {
@@ -141,10 +133,12 @@ class ApiService {
         return this.request(`/reports/my-reports${query}`);
     }
 
-    async getAllReports(status = 'all', type) {
+    async getAllReports(status = 'all', type, page, limit) {
         const params = new URLSearchParams();
         if (status !== 'all') params.append('status', status);
         if (type && type !== 'all') params.append('type', type);
+        if (page) params.append('page', page);
+        if (limit) params.append('limit', limit);
         const query = params.toString() ? `?${params.toString()}` : '';
         return this.request(`/reports${query}`);
     }
@@ -178,10 +172,13 @@ class ApiService {
         });
     }
 
-    async confirmCollection(reportId, kilosCollected) {
+    async confirmCollection(reportId, kilosCollected, assetAction) {
         return this.request(`/reports/${reportId}/confirm-collection`, {
             method: 'POST',
-            body: { kilos: kilosCollected },
+            body: { 
+                kilos: kilosCollected,
+                assetAction: assetAction
+            },
         });
     }
 

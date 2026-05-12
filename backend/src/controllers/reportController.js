@@ -44,6 +44,96 @@ function formatUserDisplayName(user) {
     return `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || null;
 }
 
+// Helper to find location ID by name
+async function getLocationIdByName(name) {
+    if (!name) return null;
+    const location = await prisma.location.findFirst({
+        where: { name: name }
+    });
+    return location ? location.id : null;
+}
+
+// Helper to update bin status automatically
+async function updateBinStatusInternal(locationName, fillStatus, userId = null) {
+    try {
+        const locationId = await getLocationIdByName(locationName);
+        if (!locationId) {
+            console.log(`   ⚠️  Could not find location ID for "${locationName}", skipping bin status update`);
+            return;
+        }
+
+        console.log(`   🔄 Auto-updating bin status for "${locationName}" (ID: ${locationId}) to: ${fillStatus}`);
+        await prisma.binStatus.upsert({
+            where: { locationId },
+            update: {
+                fillStatus,
+                lastUpdated: new Date(),
+                updatedBy: userId
+            },
+            create: {
+                locationId,
+                fillStatus,
+                updatedBy: userId
+            }
+        });
+        console.log(`   ✅ Bin status updated to ${fillStatus}`);
+
+        // Emit real-time event for map update
+        publishEvent('reports', 'binStatus.updated', {
+            locationId,
+            locationName,
+            fillStatus,
+            lastUpdated: new Date()
+        });
+    } catch (error) {
+        console.error('   ❌ Error in updateBinStatusInternal:', error);
+    }
+}
+
+// Helper to recalculate bin status based on all active reports
+async function recalculateBinStatus(locationName, userId = null) {
+    try {
+        console.log(`   🔍 Recalculating bin status for "${locationName}"...`);
+        
+        // 1. Check for any high-urgency WASTE reports that are VERIFIED or IN_PROGRESS
+        const highUrgencyCount = await prisma.report.count({
+            where: {
+                location: locationName,
+                type: 'WASTE',
+                urgency: 'high',
+                status: { in: ['VERIFIED', 'DISPATCHED', 'IN_PROGRESS'] }
+            }
+        });
+
+        if (highUrgencyCount > 0) {
+            console.log(`   🚨 ${highUrgencyCount} high-urgency waste reports found. Setting status to "full".`);
+            await updateBinStatusInternal(locationName, 'full', userId);
+            return;
+        }
+
+        // 2. Check for waste report threshold (3+ active reports)
+        const activeCount = await prisma.report.count({
+            where: {
+                location: locationName,
+                type: 'WASTE',
+                status: { in: ['PENDING', 'VERIFIED', 'DISPATCHED', 'IN_PROGRESS'] }
+            }
+        });
+
+        if (activeCount >= 3) {
+            console.log(`   🚨 ${activeCount} active waste reports found (threshold 3+). Setting status to "full".`);
+            await updateBinStatusInternal(locationName, 'full', userId);
+            return;
+        }
+
+        // 3. Otherwise set to "empty"
+        console.log(`   ✅ Only ${activeCount} active waste reports. Setting status to "empty".`);
+        await updateBinStatusInternal(locationName, 'empty', userId);
+    } catch (error) {
+        console.error('   ❌ Error in recalculateBinStatus:', error);
+    }
+}
+
 function emitReportEvent(event, report, extra = {}) {
     publishEvent('reports', event, {
         reportId: report.id,
@@ -60,11 +150,14 @@ function emitReportEvent(event, report, extra = {}) {
 // Create a new report
 export const createReport = async (req, res) => {
     try {
-        const { location, notes, photoUrl, urgency, wasteType } = req.body;
+        console.log('\n📝 createReport called');
+        const { location, notes, photoUrl, urgency, wasteType, category } = req.body;
         const userId = req.user.userId;
+        console.log('   Data:', { location, urgency, wasteType, category, userId });
 
         // Validate required fields
         if (!location) {
+            console.log('   ❌ Missing location');
             return res.status(400).json({
                 success: false,
                 message: 'Location is required'
@@ -72,17 +165,38 @@ export const createReport = async (req, res) => {
         }
 
         // Determine report type based on wasteType/category
-        // Fetch asset categories from database
+        console.log('   🔍 Fetching asset categories...');
         const assetCategories = await prisma.assetCategory.findMany({
             where: { enabled: true },
             select: { name: true }
         });
         const assetCategoryNames = assetCategories.map(c => c.name.toLowerCase());
-
+        
         const normalizedWasteType = (wasteType || 'general').toLowerCase();
-        const reportType = assetCategoryNames.includes(normalizedWasteType) ? 'ASSET' : 'WASTE';
+        const normalizedCategory = (category || '').toLowerCase();
+        const reportType = (assetCategoryNames.includes(normalizedWasteType) || assetCategoryNames.includes(normalizedCategory)) ? 'ASSET' : 'WASTE';
+
+        // --- DUPLICATE CHECK ---
+        // Check if THIS user already has an active report for this location and type
+        const activeUserReport = await prisma.report.findFirst({
+            where: {
+                userId,
+                location,
+                type: reportType,
+                status: { in: ['PENDING', 'VERIFIED', 'DISPATCHED', 'IN_PROGRESS'] }
+            }
+        });
+
+        if (activeUserReport) {
+            console.log(`   ⚠️  User ${userId} already has an active ${reportType} report for "${location}"`);
+            return res.status(400).json({
+                success: false,
+                message: `Warning: You already have an active report for this ${reportType === 'WASTE' ? 'bin' : 'item'} at this location. Multiple reports from the same user are not allowed. Please wait for MRF staff to process it.`
+            });
+        }
 
         // Create the report
+        console.log('   💾 Saving report to database...');
         const report = await prisma.report.create({
             data: {
                 location,
@@ -96,34 +210,25 @@ export const createReport = async (req, res) => {
             },
             include: {
                 user: {
-                    select: {
-                        id: true,
-                        username: true,
-                        firstName: true,
-                        lastName: true,
-                        role: true
-                    }
+                    select: { id: true, username: true, firstName: true, lastName: true, role: true }
                 },
                 assignedStaff: {
-                    select: {
-                        id: true,
-                        username: true,
-                        firstName: true,
-                        lastName: true,
-                        role: true
-                    }
+                    select: { id: true, username: true, firstName: true, lastName: true, role: true }
                 }
             }
         });
+        console.log('   ✅ Report saved with ID:', report.id);
 
-        // Update user's reports count (points awarded by admin when verified)
+        // Update user's reports count
         await prisma.user.update({
             where: { id: parseInt(userId, 10) },
-            data: {
-                reports: { increment: 1 }
-            }
+            data: { reports: { increment: 1 } }
         });
 
+        // Recalculate bin status automatically
+        await recalculateBinStatus(location, userId);
+
+        console.log('   📢 Emitting report event...');
         emitReportEvent('report.created', report, {
             actorRole: req.user.role,
         });
@@ -134,7 +239,7 @@ export const createReport = async (req, res) => {
             data: { report }
         });
     } catch (error) {
-        console.error('CreateReport error:', error);
+        console.error('❌ CreateReport error:', error);
         res.status(500).json({
             success: false,
             message: 'An error occurred while submitting the report'
@@ -205,7 +310,10 @@ export const getAllReports = async (req, res) => {
         }
 
         console.log('✅ Access granted for role:', req.user.role);
-        const { status, type } = req.query;
+        const { status, type, page = 1, limit = 100 } = req.query;
+        const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+        const take = parseInt(limit, 10);
+
         const where = {};
         if (status && status !== 'all') {
             where.status = status.toUpperCase();
@@ -214,37 +322,75 @@ export const getAllReports = async (req, res) => {
             where.type = type.toUpperCase();
         }
 
-        const reports = await prisma.report.findMany({
-            where,
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        username: true,
-                        firstName: true,
-                        lastName: true,
-                        role: true,
-                        studentId: true,
-                        course: true,
-                        section: true
+        // Apply retention filter ONLY FOR ADMIN
+        if (req.user.role === 'ADMIN') {
+            const fourteenDaysAgo = new Date();
+            fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+
+            const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+            // Filter out COMPLETED/RESOLVED/COLLECTED older than 14 days
+            // AND filter out DISMISSED older than 5 minutes
+            where.NOT = [
+                {
+                    status: { in: ['COMPLETED', 'RESOLVED', 'COLLECTED'] },
+                    updatedAt: { lt: fourteenDaysAgo }
+                },
+                {
+                    status: 'DISMISSED',
+                    updatedAt: { lt: fiveMinsAgo }
+                }
+            ];
+            console.log('   ℹ️  Applied Admin retention filters (14d completed, 5m dismissed)');
+        } else {
+            console.log('   ℹ️  MRF role detected - bypassing retention filters to show full history');
+        }
+
+
+        const [reports, totalCount] = await Promise.all([
+            prisma.report.findMany({
+                where,
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            username: true,
+                            firstName: true,
+                            lastName: true,
+                            role: true,
+                            studentId: true,
+                            course: true,
+                            section: true
+                        }
+                    },
+                    assignedStaff: {
+                        select: {
+                            id: true,
+                            username: true,
+                            firstName: true,
+                            lastName: true,
+                            role: true
+                        }
                     }
                 },
-                assignedStaff: {
-                    select: {
-                        id: true,
-                        username: true,
-                        firstName: true,
-                        lastName: true,
-                        role: true
-                    }
-                }
-            },
-            orderBy: { createdAt: 'desc' }
-        });
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take
+            }),
+            prisma.report.count({ where })
+        ]);
 
         res.json({
             success: true,
-            data: { reports }
+            data: { 
+                reports,
+                pagination: {
+                    total: totalCount,
+                    page: parseInt(page, 10),
+                    limit: take,
+                    pages: Math.ceil(totalCount / take)
+                }
+            }
         });
     } catch (error) {
         console.error('GetAllReports error:', error);
@@ -463,6 +609,10 @@ export const updateReportStatus = async (req, res) => {
             console.log(`   ℹ️  Status change to ${status} - no points awarded\n`);
         }
 
+        // Recalculate bin status automatically for ANY status change
+        console.log(`   🔄 Recalculating bin status for "${report.location}" after status update...`);
+        await recalculateBinStatus(report.location, req.user.userId);
+
         emitReportEvent('report.updated', report, {
             previousStatus: currentReport.status,
             actorRole: req.user.role,
@@ -515,6 +665,9 @@ export const deleteReport = async (req, res) => {
         });
 
         await prisma.report.delete({ where: { id: parseInt(id, 10) } });
+
+        // Recalculate bin status after deletion
+        await recalculateBinStatus(report.location, req.user.userId);
 
         res.json({
             success: true,
@@ -643,7 +796,7 @@ export const dispatchStaff = async (req, res) => {
     }
 };
 
-// 2. CONFIRM COLLECTION - MRF staff enters kilos and marks as IN_PROGRESS
+// 2. CONFIRM COLLECTION - MRF staff enters kilos/action and marks as IN_PROGRESS
 export const confirmCollection = async (req, res) => {
     try {
         // Only MRF staff can confirm collection
@@ -655,27 +808,12 @@ export const confirmCollection = async (req, res) => {
         }
 
         const { id } = req.params;
-        const { kilos } = req.body;
-
-        // Validate required fields
-        if (kilos === undefined || kilos === null) {
-            return res.status(400).json({
-                success: false,
-                message: 'Kilos collected is required'
-            });
-        }
-
-        if (typeof kilos !== 'number' || kilos < 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'Kilos must be a valid positive number'
-            });
-        }
+        const { kilos, assetAction } = req.body;
 
         // Get the current report
         const currentReport = await prisma.report.findUnique({
             where: { id: parseInt(id, 10) },
-            select: { status: true, assignedStaffId: true }
+            select: { status: true, assignedStaffId: true, type: true }
         });
 
         if (!currentReport) {
@@ -683,6 +821,37 @@ export const confirmCollection = async (req, res) => {
                 success: false,
                 message: 'Report not found'
             });
+        }
+
+        // Validate required fields based on report type
+        if (currentReport.type === 'WASTE') {
+            if (kilos === undefined || kilos === null) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Kilos collected is required for waste reports'
+                });
+            }
+
+            if (typeof kilos !== 'number' || kilos < 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Kilos must be a valid positive number'
+                });
+            }
+        } else if (currentReport.type === 'ASSET') {
+            if (!assetAction) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Asset action (REPAIR/DISPOSE) is required for asset reports'
+                });
+            }
+
+            if (!['REPAIR', 'DISPOSE'].includes(assetAction)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid asset action. Must be REPAIR or DISPOSE.'
+                });
+            }
         }
 
         // Only allow confirming DISPATCHED reports
@@ -701,14 +870,21 @@ export const confirmCollection = async (req, res) => {
             });
         }
 
-        // Update report to IN_PROGRESS with collection data
+        // Update report to IN_PROGRESS with collection/asset data
+        const updateData = {
+            status: 'IN_PROGRESS',
+            collectionDate: new Date()
+        };
+
+        if (currentReport.type === 'WASTE') {
+            updateData.kilosCollected = kilos;
+        } else {
+            updateData.assetAction = assetAction;
+        }
+
         const report = await prisma.report.update({
             where: { id: parseInt(id, 10) },
-            data: {
-                status: 'IN_PROGRESS',
-                kilosCollected: kilos,
-                collectionDate: new Date()
-            },
+            data: updateData,
             include: {
                 user: {
                     select: {
@@ -736,11 +912,17 @@ export const confirmCollection = async (req, res) => {
             actorRole: req.user.role,
             action: 'confirm_collection',
             kilosCollected: kilos,
+            assetAction: assetAction,
         });
+
+        // Recalculate bin status automatically
+        await recalculateBinStatus(report.location, req.user.userId);
 
         res.json({
             success: true,
-            message: `Collection confirmed: ${kilos} kg recorded`,
+            message: currentReport.type === 'WASTE' 
+                ? `Collection confirmed: ${kilos} kg recorded`
+                : `Asset action confirmed: ${assetAction} selected`,
             data: { report }
         });
     } catch (error) {
@@ -827,6 +1009,10 @@ export const markAsDone = async (req, res) => {
             }
         });
 
+        // Requirement: Automatically recalculate bin status when marked as done
+        console.log(`   🚨 Report marked as done. Triggering automatic bin status recalculation.`);
+        await recalculateBinStatus(report.location, req.user.userId);
+
         // Award points to the reporter for completed collection
         const pointsAwarded = 20; // Award 20 points for completed report
         await prisma.user.update({
@@ -867,53 +1053,66 @@ export const getImpactMetrics = async (req, res) => {
             });
         }
 
-        const reports = await prisma.report.findMany({
-            select: {
-                id: true,
-                type: true,
-                status: true,
-                wasteType: true,
-                kilosCollected: true,
-                createdAt: true,
-                updatedAt: true,
-                collectionDate: true,
-                userId: true,
-            }
+        console.log('📊 Calculating impact metrics using database aggregations...');
+
+        // 1. Basic aggregates
+        const [aggStats, totalReports, activeLocations] = await Promise.all([
+            prisma.report.aggregate({
+                _sum: { kilosCollected: true },
+                _count: { id: true }
+            }),
+            prisma.report.count(),
+            prisma.location.count({ where: { enabled: true } })
+        ]);
+
+        const totalCollected = aggStats._sum.kilosCollected || 0;
+
+        // 2. Diverted from landfill (completed statuses)
+        const completedStatuses = ['COMPLETED', 'RESOLVED', 'COLLECTED'];
+        const divertedStats = await prisma.report.aggregate({
+            where: { status: { in: completedStatuses } },
+            _sum: { kilosCollected: true },
+            _count: { id: true }
         });
+        const divertedFromLandfill = divertedStats._sum.kilosCollected || 0;
+        const completedReportsCount = divertedStats._count.id || 0;
 
-        const activeLocations = await prisma.location.count({
-            where: { enabled: true }
-        });
-
-        const wasteReports = reports.filter((r) => r.type === 'WASTE');
-        const totalReports = reports.length;
-        const totalCollected = reports.reduce((sum, report) => sum + (report.kilosCollected || 0), 0);
-
-        const completedStatuses = new Set(['COMPLETED', 'RESOLVED', 'COLLECTED']);
-        const divertedFromLandfill = reports.reduce((sum, report) => {
-            if (!completedStatuses.has(report.status)) return sum;
-            return sum + (report.kilosCollected || 0);
-        }, 0);
-
-        const recyclableReports = wasteReports.filter((report) => {
-            if (!report.wasteType) return false;
-            return report.wasteType.toLowerCase() !== 'general';
-        });
-
-        const recyclingRate = wasteReports.length > 0
-            ? roundNumber((recyclableReports.length / wasteReports.length) * 100, 1)
+        // 3. Recycling Rate (waste reports not "general")
+        const wasteAggregates = await Promise.all([
+            prisma.report.count({ where: { type: 'WASTE' } }),
+            prisma.report.count({ 
+                where: { 
+                    type: 'WASTE',
+                    NOT: { wasteType: { equals: 'general', mode: 'insensitive' } }
+                } 
+            })
+        ]);
+        const totalWasteReports = wasteAggregates[0];
+        const recyclableReportsCount = wasteAggregates[1];
+        const recyclingRate = totalWasteReports > 0
+            ? roundNumber((recyclableReportsCount / totalWasteReports) * 100, 1)
             : 0;
 
+        // 4. Active Users (last 30 days)
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const activeUsers = new Set(
-            reports
-                .filter((report) => report.createdAt >= thirtyDaysAgo)
-                .map((report) => report.userId)
-        ).size;
+        const activeUsersCount = await prisma.report.groupBy({
+            by: ['userId'],
+            where: { createdAt: { gte: thirtyDaysAgo } }
+        });
+        const activeUsers = activeUsersCount.length;
 
-        const responseTimes = reports
-            .filter((report) => report.updatedAt && report.createdAt)
+        // 5. Avg Response Time (this is harder to do in DB for all DBs, but let's approximate or use a subset)
+        // For now, let's just keep the simplified logic or use a recent sample if there are too many
+        // Actually, we can fetch just the necessary fields for this
+        const responseTimeData = await prisma.report.findMany({
+            where: { updatedAt: { not: null } },
+            select: { createdAt: true, updatedAt: true },
+            orderBy: { createdAt: 'desc' },
+            take: 1000 // Limit to last 1000 reports for performance
+        });
+
+        const responseTimes = responseTimeData
             .map((report) => (report.updatedAt.getTime() - report.createdAt.getTime()) / 36e5)
             .filter((hours) => hours > 0);
 
@@ -921,15 +1120,36 @@ export const getImpactMetrics = async (req, res) => {
             ? roundNumber(responseTimes.reduce((sum, hours) => sum + hours, 0) / responseTimes.length, 1)
             : 0;
 
-        const completedReports = reports.filter((report) => completedStatuses.has(report.status));
         const satisfactionScore = totalReports > 0
-            ? roundNumber(Math.min(5, (completedReports.length / totalReports) * 5), 1)
+            ? roundNumber(Math.min(5, (completedReportsCount / totalReports) * 5), 1)
             : 0;
 
+        // 6. Trends (Monthly buckets)
         const trends = buildMonthBuckets(6);
         const trendMap = new Map(trends.map((bucket) => [bucket.key, bucket]));
 
-        reports.forEach((report) => {
+        // Fetch reports for trends (only recent ones)
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+        const trendReports = await prisma.report.findMany({
+            where: { 
+                OR: [
+                    { collectionDate: { gte: sixMonthsAgo } },
+                    { updatedAt: { gte: sixMonthsAgo } },
+                    { createdAt: { gte: sixMonthsAgo } }
+                ]
+            },
+            select: {
+                type: true,
+                wasteType: true,
+                kilosCollected: true,
+                createdAt: true,
+                updatedAt: true,
+                collectionDate: true
+            }
+        });
+
+        trendReports.forEach((report) => {
             const bucketDate = report.collectionDate || report.updatedAt || report.createdAt;
             const bucketKey = getMonthKey(bucketDate);
             const bucket = trendMap.get(bucketKey);
@@ -951,23 +1171,29 @@ export const getImpactMetrics = async (req, res) => {
             ? roundNumber(((lastMonth.waste - previousMonth.waste) / previousMonth.waste) * 100, 1)
             : 0;
 
-        const breakdownTotals = new Map();
-        const useKilosForBreakdown = wasteReports.some((report) => report.kilosCollected);
-
-        wasteReports.forEach((report) => {
-            const category = (report.wasteType || 'general').toLowerCase();
-            const increment = useKilosForBreakdown ? (report.kilosCollected || 0) : 1;
-            breakdownTotals.set(category, (breakdownTotals.get(category) || 0) + increment);
+        // 7. Breakdown (By waste type)
+        const wasteBreakdown = await prisma.report.groupBy({
+            by: ['wasteType'],
+            _sum: { kilosCollected: true },
+            _count: { id: true },
+            where: { type: 'WASTE' }
         });
 
-        const totalBreakdownValue = Array.from(breakdownTotals.values()).reduce((sum, value) => sum + value, 0) || 1;
+        const useKilosForBreakdown = wasteBreakdown.some((b) => b._sum.kilosCollected);
+        const totalBreakdownValue = wasteBreakdown.reduce((sum, b) => 
+            sum + (useKilosForBreakdown ? (b._sum.kilosCollected || 0) : b._count.id), 0) || 1;
+
         const breakdownPalette = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#22c55e', '#0ea5e9'];
-        const breakdown = Array.from(breakdownTotals.entries())
-            .sort((a, b) => b[1] - a[1])
+        const breakdown = wasteBreakdown
+            .map((b) => ({
+                category: (b.wasteType || 'general').charAt(0).toUpperCase() + (b.wasteType || 'general').slice(1).toLowerCase(),
+                raw: useKilosForBreakdown ? (b._sum.kilosCollected || 0) : b._count.id
+            }))
+            .sort((a, b) => b.raw - a.raw)
             .slice(0, 5)
-            .map(([category, value], index) => ({
-                category: category.charAt(0).toUpperCase() + category.slice(1),
-                value: Math.round((value / totalBreakdownValue) * 100),
+            .map((b, index) => ({
+                category: b.category,
+                value: Math.round((b.raw / totalBreakdownValue) * 100),
                 color: breakdownPalette[index % breakdownPalette.length],
             }));
 

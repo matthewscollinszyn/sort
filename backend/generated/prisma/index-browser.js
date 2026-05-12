@@ -151,6 +151,7 @@ exports.Prisma.ReportScalarFieldEnum = {
   status: 'status',
   assignedStaffId: 'assignedStaffId',
   kilosCollected: 'kilosCollected',
+  assetAction: 'assetAction',
   collectionDate: 'collectionDate',
   userId: 'userId',
   createdAt: 'createdAt',
@@ -302,6 +303,11 @@ exports.ReportStatus = exports.$Enums.ReportStatus = {
   COMPLETED: 'COMPLETED',
   COLLECTED: 'COLLECTED',
   RESOLVED: 'RESOLVED'
+};
+
+exports.AssetAction = exports.$Enums.AssetAction = {
+  REPAIR: 'REPAIR',
+  DISPOSE: 'DISPOSE'
 };
 
 exports.LocationType = exports.$Enums.LocationType = {

@@ -137,9 +137,11 @@ export async function createNews(req, res) {
 }
 
 export async function editNews(req, res) {
+    console.log('[editNews] Called with ID:', req.params.id, 'Body:', req.body, 'User:', req.user);
     try {
         const validationError = validateNewsPayload(req.body);
         if (validationError) {
+            console.log('[editNews] Validation error:', validationError);
             return res.status(400).json({ success: false, message: validationError });
         }
 
@@ -149,6 +151,7 @@ export async function editNews(req, res) {
         });
         const news = await listNewsItems();
         publishEvent('news', 'news.snapshot', { news });
+        console.log('[editNews] Success, returning', news.length, 'items');
         res.json({ success: true, message: 'News item updated', data: { news } });
     } catch (error) {
         console.error('EditNews error:', error);
@@ -157,10 +160,12 @@ export async function editNews(req, res) {
 }
 
 export async function removeNews(req, res) {
+    console.log('[removeNews] Called with ID:', req.params.id, 'User:', req.user);
     try {
         await prisma.campusNews.delete({ where: { id: parseInt(req.params.id, 10) } });
         const news = await listNewsItems();
         publishEvent('news', 'news.snapshot', { news });
+        console.log('[removeNews] Success, returning', news.length, 'items');
         res.json({ success: true, message: 'News item deleted', data: { news } });
     } catch (error) {
         console.error('RemoveNews error:', error);

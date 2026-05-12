@@ -1,5 +1,5 @@
 /* =========================================================
-   EcoLedger – API Service
+   EcoLedger – API Service (TypeScript)
    Handles all backend communication
    ========================================================= */
 
@@ -66,7 +66,7 @@ interface ImpactMetrics {
 }
 
 class ApiService {
-  private baseUrl: string;
+  public baseUrl: string;
   private storage: Storage;
 
   constructor() {
@@ -87,15 +87,21 @@ class ApiService {
   }
 
   getToken(): string | null {
-    return this.storage.getItem('token');
+    // Try sessionStorage first (per-tab session), then fallback to localStorage (legacy/persistence)
+    return sessionStorage.getItem('token') || localStorage.getItem('token');
   }
 
   setToken(token: string): void {
-    this.storage.setItem('token', token);
+    // Always store in sessionStorage for per-tab isolation
+    sessionStorage.setItem('token', token);
   }
 
   removeToken(): void {
-    this.storage.removeItem('token');
+    sessionStorage.removeItem('token');
+    // Also clear from localStorage to ensure full logout
+    try {
+      localStorage.removeItem('token');
+    } catch (e) { /* ignore */ }
   }
 
   private async request<T = unknown>(endpoint: string, options: RequestInit & { body?: unknown } = {}): Promise<ApiResponse<T>> {
@@ -233,23 +239,19 @@ class ApiService {
     });
   }
 
+  async getLeaderboard(): Promise<ApiResponse> {
+    return this.request('/auth/leaderboard');
+  }
+
   async getNews(): Promise<ApiResponse<{ news: NewsItemData[] }>> {
     return this.request('/news');
   }
 
   async createNewsItem(newsItem: NewsItemData): Promise<ApiResponse<{ news: NewsItemData[] }>> {
-    console.log('[API] createNewsItem called', newsItem);
-    try {
-      const result = await this.request('/news', {
-        method: 'POST',
-        body: newsItem,
-      });
-      console.log('[API] createNewsItem result', result);
-      return result;
-    } catch (error) {
-      console.error('[API] createNewsItem ERROR:', error);
-      throw error;
-    }
+    return this.request('/news', {
+      method: 'POST',
+      body: newsItem,
+    });
   }
 
   async updateNewsItem(id: string, changes: NewsItemData): Promise<ApiResponse<{ news: NewsItemData[] }>> {
@@ -265,12 +267,166 @@ class ApiService {
     });
   }
 
+  // Settings endpoints - Asset Categories
+  async getAssetCategories(): Promise<ApiResponse> {
+    return this.request('/settings/asset-categories');
+  }
+
+  async createAssetCategory(data: any): Promise<ApiResponse> {
+    return this.request('/settings/asset-categories', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async updateAssetCategory(id: string, data: any): Promise<ApiResponse> {
+    return this.request(`/settings/asset-categories/${id}`, {
+      method: 'PUT',
+      body: data,
+    });
+  }
+
+  async deleteAssetCategory(id: string): Promise<ApiResponse> {
+    return this.request(`/settings/asset-categories/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Settings endpoints - Locations
+  async getLocations(type?: string): Promise<ApiResponse> {
+    const query = type ? `?type=${type}` : '';
+    return this.request(`/settings/locations${query}`);
+  }
+
+  async createLocation(data: any): Promise<ApiResponse> {
+    return this.request('/settings/locations', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async updateLocation(id: string, data: any): Promise<ApiResponse> {
+    return this.request(`/settings/locations/${id}`, {
+      method: 'PUT',
+      body: data,
+    });
+  }
+
+  async deleteLocation(id: string): Promise<ApiResponse> {
+    return this.request(`/settings/locations/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Settings endpoints - Item Presets
+  async getItemPresets(categoryId?: string): Promise<ApiResponse> {
+    const query = categoryId ? `?categoryId=${categoryId}` : '';
+    return this.request(`/settings/item-presets${query}`);
+  }
+
+  async createItemPreset(data: any): Promise<ApiResponse> {
+    return this.request('/settings/item-presets', {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async updateItemPreset(id: string, data: any): Promise<ApiResponse> {
+    return this.request(`/settings/item-presets/${id}`, {
+      method: 'PUT',
+      body: data,
+    });
+  }
+
+  async deleteItemPreset(id: string): Promise<ApiResponse> {
+    return this.request(`/settings/item-presets/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Map endpoints - Campus map
+  async uploadCampusMap(imageData: string, imageName: string, imageSize: number): Promise<ApiResponse> {
+    return this.request('/map/upload', {
+      method: 'POST',
+      body: { imageData, imageName, imageSize },
+    });
+  }
+
+  async getCampusMap(): Promise<ApiResponse> {
+    return this.request('/map/current');
+  }
+
+  // Map endpoints - Bin coordinates
+  async updateBinCoordinates(locationId: string, mapX: number, mapY: number): Promise<ApiResponse> {
+    return this.request(`/map/bins/${locationId}/coordinates`, {
+      method: 'PUT',
+      body: { mapX, mapY },
+    });
+  }
+
+  // Map endpoints - Bin statuses
+  async getBinStatuses(): Promise<ApiResponse> {
+    return this.request('/map/bins/statuses');
+  }
+
+  async updateBinStatus(locationId: string, fillStatus: string): Promise<ApiResponse> {
+    return this.request(`/map/bins/${locationId}/status`, {
+      method: 'PUT',
+      body: { fillStatus },
+    });
+  }
+
+  // Map endpoints - Analytics
+  async getAnalytics(): Promise<ApiResponse> {
+    return this.request('/map/analytics');
+  }
+
+  // System settings
+  async getSystemSettings(): Promise<ApiResponse> {
+    return this.request('/settings/system');
+  }
+
+  async updateSystemSettings(settings: any): Promise<ApiResponse> {
+    return this.request('/settings/system', {
+      method: 'PUT',
+      body: { settings },
+    });
+  }
+
+  // Generic HTTP methods
+  async get<T = any>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { method: 'GET' });
+  }
+
+  async post<T = any>(endpoint: string, data: any): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      body: data,
+    });
+  }
+
+  async put<T = any>(endpoint: string, data: any): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'PUT',
+      body: data,
+    });
+  }
+
+  async delete<T = any>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { method: 'DELETE' });
+  }
+
   getNewsStreamUrl(): string {
     return this.getStreamUrl('/news/stream');
   }
 
   getReportsStreamUrl(): string {
     return this.getStreamUrl('/reports/stream');
+  }
+
+  // Property getter for backward compatibility
+  get BASE_URL() {
+    return this.baseUrl;
   }
 }
 

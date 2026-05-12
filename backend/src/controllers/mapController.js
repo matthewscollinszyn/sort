@@ -1,4 +1,5 @@
 import { PrismaClient } from '../../generated/prisma/index.js';
+import { publishEvent } from '../lib/realtime.js';
 
 const prisma = new PrismaClient();
 
@@ -153,25 +154,47 @@ export const updateBinStatus = async (req, res) => {
         const { fillStatus } = req.body;
         const userId = req.user?.userId;
 
-        if (!fillStatus || !['empty', 'half', 'full'].includes(fillStatus)) {
+        if (!fillStatus || !['empty', 'full'].includes(fillStatus)) {
             return res.status(400).json({
                 success: false,
-                message: 'Valid fillStatus is required (empty, half, full)'
+                message: 'Valid fillStatus is required (empty, full)'
             });
         }
 
+        const id = parseInt(locationId, 10);
+        if (isNaN(id)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid locationId'
+            });
+        }
+
+        const location = await prisma.location.findUnique({
+            where: { id },
+            select: { name: true }
+        });
+
         const binStatus = await prisma.binStatus.upsert({
-            where: { locationId },
+            where: { locationId: id },
             update: {
                 fillStatus,
                 lastUpdated: new Date(),
                 updatedBy: userId
             },
             create: {
-                locationId,
+                locationId: id,
                 fillStatus,
                 updatedBy: userId
             }
+        });
+
+        // Broadcast real-time update
+        publishEvent('reports', 'binStatus.updated', {
+            locationId: id,
+            locationName: location?.name,
+            fillStatus,
+            updatedBy: userId,
+            timestamp: new Date()
         });
 
         res.json({

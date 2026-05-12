@@ -266,7 +266,7 @@ async function main() {
         {
             key: 'low',
             label: 'Low',
-            description: 'Almost full, not urgent',
+            description: 'Not full yet, but reported',
             color: 'border-slate-400 bg-slate-100 text-slate-500',
             sortOrder: 1
         },

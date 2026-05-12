@@ -39,6 +39,11 @@ enum ReportType {
   ASSET
 }
 
+enum AssetAction {
+  REPAIR
+  DISPOSE
+}
+
 enum LocationType {
   BIN_LOCATION
   ROOM_LOCATION
@@ -91,6 +96,7 @@ model Report {
   // MRF Operations fields
   assignedStaffId  Int?
   kilosCollected   Float?
+  assetAction      AssetAction?
   collectionDate   DateTime?
   
   // User relation
@@ -192,7 +198,7 @@ model CampusMap {
 model BinStatus {
   id         Int      @id @default(autoincrement())
   locationId Int      @unique // References Location.id
-  fillStatus String   @default("empty") // empty, half, full
+  fillStatus String   @default("empty") // empty, full
   lastUpdated DateTime @default(now())
   updatedBy  Int?  // User ID who updated the status
   
