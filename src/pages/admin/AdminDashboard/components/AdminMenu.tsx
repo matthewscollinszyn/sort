@@ -1,18 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, User, Shield, FileText, LogOut } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { ChevronDown, User, Shield, FileText, LogOut, Settings as SettingsIcon, Activity } from 'lucide-react';
+import { useAuth } from '../../../../contexts/AuthContext';
+import ProfileModal from '../../../../components/ProfileModal';
 
-const adminUser = {
-  name: 'Admin User',
-  role: 'System Administrator',
-  avatar: 'AU',
-};
+interface AdminMenuProps {
+  onTabChange?: (tabId: string) => void;
+}
 
-export function AdminMenu() {
+export function AdminMenu({ onTabChange }: AdminMenuProps) {
   const [open, setOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
+  const { user, signout } = useAuth();
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -21,6 +21,23 @@ export function AdminMenu() {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  const adminInfo = {
+    name: `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.username || 'Admin User',
+    role: 'System Administrator',
+    avatar: (user?.firstName?.[0] || user?.username?.[0] || 'A').toUpperCase() + (user?.lastName?.[0] || '').toUpperCase(),
+  };
+
+  const handleAction = (label: string) => {
+    setOpen(false);
+    if (label === 'My Profile') {
+      setProfileOpen(true);
+    } else if (label === 'Admin Settings' && onTabChange) {
+      onTabChange('settings');
+    } else if (label === 'Audit Logs' && onTabChange) {
+      onTabChange('audit'); 
+    }
+  };
 
   return (
     <div className="relative" ref={ref}>
@@ -33,10 +50,10 @@ export function AdminMenu() {
         }`}
       >
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-slate-700 to-slate-900 text-white text-xs font-bold shadow-sm">
-          {adminUser.avatar}
+          {adminInfo.avatar}
         </div>
         <span className="hidden sm:block text-xs font-medium max-w-[7rem] truncate text-slate-700">
-          {adminUser.name.split(' ')[0]}
+          {adminInfo.name.split(' ')[0]}
         </span>
         <ChevronDown className={`h-3 w-3 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -53,11 +70,11 @@ export function AdminMenu() {
             <div className="px-4 py-3 border-b border-slate-100">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 text-white text-sm font-bold">
-                  {adminUser.avatar}
+                  {adminInfo.avatar}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate text-slate-900">{adminUser.name}</p>
-                  <p className="text-xs text-slate-500">{adminUser.role}</p>
+                  <p className="text-sm font-semibold truncate text-slate-900">{adminInfo.name}</p>
+                  <p className="text-xs text-slate-500">{adminInfo.role}</p>
                 </div>
               </div>
               <div className="mt-2 flex items-center gap-2 rounded-lg px-2.5 py-1.5 bg-slate-100">
@@ -68,12 +85,12 @@ export function AdminMenu() {
             <div className="py-1.5">
               {[
                 { icon: User, label: 'My Profile' },
-                { icon: Shield, label: 'Admin Settings' },
-                { icon: FileText, label: 'Audit Logs' },
+                { icon: SettingsIcon, label: 'Admin Settings' },
+                { icon: Activity, label: 'Audit Logs' },
               ].map((item) => (
                 <button
                   key={item.label}
-                  onClick={() => setOpen(false)}
+                  onClick={() => handleAction(item.label)}
                   className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
                 >
                   <item.icon className="h-4 w-4 text-slate-500" />
@@ -83,7 +100,7 @@ export function AdminMenu() {
             </div>
             <div className="border-t border-slate-100 py-1.5">
               <button
-                onClick={() => navigate('/')}
+                onClick={signout}
                 className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors"
               >
                 <LogOut className="h-4 w-4" />
@@ -93,6 +110,13 @@ export function AdminMenu() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ProfileModal 
+        isOpen={profileOpen} 
+        onClose={() => setProfileOpen(false)} 
+        user={user} 
+        theme="light" 
+      />
     </div>
   );
 }

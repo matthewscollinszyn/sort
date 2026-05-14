@@ -3,184 +3,228 @@
    Printable certificate for students who reach 100+ points
    ========================================================= */
 
-import { Download, Printer, X } from 'lucide-react';
-import { useRef } from 'react';
+import { Download, X, Award, MapPin, Calendar, ShieldCheck, Share2, Printer, Leaf } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useTheme } from '../contexts/ThemeContext';
+import { jsPDF } from 'jspdf';
 
 export default function RewardCertificate({
     isOpen,
     onClose,
-    studentName,
-    studentId,
-    points,
-    rewardCode,
-    date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    studentName = 'Eco-Warrior',
+    studentId = 'N/A',
+    points = 0,
+    impact = 0,
+    rewardCode = 'SORT-XXXX-XXXX',
+    date = new Date().toLocaleDateString(),
+    type = 'MONTHLY' // 'MONTHLY' or 'QUARTERLY'
 }) {
-    const certificateRef = useRef(null);
+    const { theme } = useTheme();
+    const isDark = theme === 'dark';
 
-    const handlePrint = () => {
-        window.print();
-    };
+    const handleDownloadPDF = () => {
+        const doc = new jsPDF({
+            orientation: 'landscape',
+            unit: 'mm',
+            format: 'a4'
+        });
 
-    const handleDownload = () => {
-        // Trigger print dialog which allows "Save as PDF"
-        window.print();
+        const width = doc.internal.pageSize.getWidth();
+        const height = doc.internal.pageSize.getHeight();
+
+        // Background
+        doc.setFillColor(248, 250, 252); // slate-50
+        doc.rect(0, 0, width, height, 'F');
+
+        // Border
+        doc.setDrawColor(16, 185, 129); // eco-green
+        doc.setLineWidth(5);
+        doc.rect(10, 10, width - 20, height - 20, 'D');
+        
+        doc.setLineWidth(1);
+        doc.rect(12, 12, width - 24, height - 24, 'D');
+
+        // Content
+        doc.setTextColor(15, 23, 42); // slate-900
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(40);
+        doc.text('CERTIFICATE', width / 2, 45, { align: 'center' });
+        
+        doc.setFontSize(24);
+        doc.text(type === 'QUARTERLY' ? 'OF RECOGNITION' : 'OF ACHIEVEMENT', width / 2, 60, { align: 'center' });
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(16);
+        doc.text('This certificate is proudly presented to', width / 2, 85, { align: 'center' });
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(32);
+        doc.setTextColor(16, 185, 129);
+        doc.text(studentName.toUpperCase(), width / 2, 105, { align: 'center' });
+
+        doc.setDrawColor(16, 185, 129);
+        doc.setLineWidth(0.5);
+        doc.line(60, 110, width - 60, 110);
+
+        doc.setTextColor(15, 23, 42);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(14);
+        
+        const description = type === 'QUARTERLY' 
+            ? `For exceptional environmental impact during the quarter, successfully diverting ${impact} kg of waste from landfills and earning ${points} points.`
+            : `For outstanding participation in the S.O.R.T. Campus Waste Management Program, reaching the milestone of ${points} Eco-Points this month.`;
+            
+        const splitDesc = doc.splitTextToSize(description, width - 80);
+        doc.text(splitDesc, width / 2, 125, { align: 'center' });
+
+        doc.setFontSize(12);
+        doc.text(`Student ID: ${studentId}`, 40, 165);
+        doc.text(`Date: ${date}`, 40, 175);
+        doc.text(`Reward Code: ${rewardCode}`, 40, 185);
+
+        doc.setFont('helvetica', 'bold');
+        doc.text('ECO-LEDGER SYSTEM', width - 40, 165, { align: 'right' });
+        doc.setFont('helvetica', 'normal');
+        doc.text('Authorized Digital Certificate', width - 40, 175, { align: 'right' });
+
+        // Footer brand
+        doc.setTextColor(16, 185, 129);
+        doc.setFontSize(10);
+        doc.text('ECOLEDGER | CAMPUS SUSTAINABILITY INITIATIVE', width / 2, height - 15, { align: 'center' });
+
+        doc.save(`${type.toLowerCase()}_certificate_${studentName.replace(/\s+/g, '_')}.pdf`);
     };
 
     if (!isOpen) return null;
 
     return (
-        <>
-            {/* Overlay */}
-            <div
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-                onClick={onClose}
-            >
-                {/* Modal */}
-                <div
-                    className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
-                    onClick={(e) => e.stopPropagation()}
+        <AnimatePresence>
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+                <motion.div 
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    onClick={onClose}
+                    className="fixed inset-0 bg-slate-950/80 backdrop-blur-md" 
+                />
+                
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                    className={`relative w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden ${isDark ? 'bg-slate-900 border border-white/10' : 'bg-white border border-slate-200'}`}
                 >
-                    {/* Action Buttons - Only visible on screen */}
-                    <div className="print:hidden sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
-                        <h3 className="text-lg font-bold text-slate-900">Eco-Reward Certificate</h3>
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={handlePrint}
-                                className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
-                            >
-                                <Printer className="h-4 w-4" />
-                                <span className="text-sm font-medium">Print</span>
-                            </button>
-                            <button
-                                onClick={handleDownload}
-                                className="flex items-center gap-2 px-4 py-2 bg-eco-green hover:bg-eco-green/90 text-white rounded-lg transition-colors"
-                            >
-                                <Download className="h-4 w-4" />
-                                <span className="text-sm font-medium">Save as PDF</span>
-                            </button>
-                            <button
-                                onClick={onClose}
-                                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                            >
-                                <X className="h-5 w-5 text-slate-500" />
-                            </button>
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-6 border-b border-white/5">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-xl bg-eco-green/20 flex items-center justify-center">
+                                <Award className="h-6 w-6 text-eco-green" />
+                            </div>
+                            <div>
+                                <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>
+                                    {type === 'QUARTERLY' ? 'Impact Tier Reward' : 'Eco-Point Reward'}
+                                </h3>
+                                <p className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Verified Academic Recognition</p>
+                            </div>
                         </div>
+                        <button onClick={onClose} className="p-2 rounded-full hover:bg-white/5 transition-colors">
+                            <X className="h-5 w-5 text-slate-400" />
+                        </button>
                     </div>
 
-                    {/* Certificate Content */}
-                    <div ref={certificateRef} className="p-8 md:p-12">
-                        {/* Certificate Border */}
-                        <div className="border-8 border-double border-eco-green rounded-3xl p-8 md:p-12 bg-gradient-to-br from-white via-emerald-50/30 to-white">
-                            {/* Header */}
-                            <div className="text-center mb-8">
-                                <div className="inline-block px-6 py-2 bg-eco-green/10 rounded-full mb-4">
-                                    <span className="text-4xl">🌱</span>
-                                </div>
-                                <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-2">
-                                    Certificate of Achievement
-                                </h1>
-                                <div className="h-1 w-32 bg-eco-green mx-auto rounded-full"></div>
-                            </div>
-
-                            {/* Body */}
-                            <div className="text-center space-y-6 mb-8">
-                                <p className="text-lg text-slate-600">
-                                    This certifies that
-                                </p>
-
-                                <div className="py-4">
-                                    <h2 className="text-3xl md:text-4xl font-bold text-eco-green mb-2">
-                                        {studentName || 'Student Name'}
+                    {/* Certificate Preview */}
+                    <div className="p-8 sm:p-12 overflow-x-auto">
+                        <div id="certificate-print-area" className="min-w-[800px] aspect-[1.414/1] bg-slate-50 rounded-lg p-10 border-8 border-eco-green relative shadow-inner">
+                            {/* Decorative Corner */}
+                            <div className="absolute top-0 left-0 w-24 h-24 border-t-8 border-l-8 border-eco-green -m-2 rounded-tl-xl" />
+                            
+                            <div className="h-full w-full border-2 border-eco-green/30 flex flex-col items-center justify-between py-12 px-16 text-slate-900 text-center">
+                                <div>
+                                    <h1 className="text-5xl font-black tracking-tighter mb-2">CERTIFICATE</h1>
+                                    <h2 className="text-2xl font-bold text-slate-600 tracking-widest uppercase">
+                                        {type === 'QUARTERLY' ? 'of Recognition' : 'of Achievement'}
                                     </h2>
-                                    <p className="text-sm text-slate-500">
-                                        Student ID: {studentId || 'N/A'}
-                                    </p>
                                 </div>
 
-                                <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-                                    has successfully earned <span className="font-bold text-eco-green text-2xl">{points}</span> eco-points
-                                    through outstanding commitment to environmental sustainability
-                                    and waste management initiatives.
-                                </p>
-
-                                <div className="py-6">
-                                    <div className="inline-block bg-slate-900 text-white px-8 py-4 rounded-xl">
-                                        <p className="text-xs uppercase tracking-wider text-slate-400 mb-1">Verification Code</p>
-                                        <p className="text-xl font-mono font-bold">{rewardCode}</p>
+                                <div className="space-y-4">
+                                    <p className="text-lg italic font-serif">This certificate is proudly presented to</p>
+                                    <h3 className="text-4xl font-bold text-eco-green underline underline-offset-8 decoration-2 uppercase px-4 py-2">
+                                        {studentName}
+                                    </h3>
+                                    <div className="max-w-xl mx-auto pt-4">
+                                        <p className="text-base leading-relaxed text-slate-700">
+                                            {type === 'QUARTERLY' 
+                                                ? `For exceptional environmental impact during the current academic quarter, successfully diverting ${impact} kg of waste from landfills and earning ${points} points.`
+                                                : `For outstanding participation in the S.O.R.T. Campus Waste Management Program, reaching the milestone of ${points} Eco-Points this month.`
+                                            }
+                                        </p>
                                     </div>
                                 </div>
 
-                                <p className="text-sm text-slate-500">
-                                    Present this certificate to the principal or authorized staff to claim your reward.
-                                </p>
-                            </div>
-
-                            {/* Footer */}
-                            <div className="border-t border-slate-200 pt-8 mt-8">
-                                <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-                                    <div className="text-center">
-                                        <div className="border-t-2 border-slate-900 pt-2 px-8 mb-1">
-                                            <p className="font-semibold text-slate-900">Principal's Signature</p>
-                                        </div>
-                                        <p className="text-xs text-slate-500">Authorized By</p>
+                                <div className="w-full flex items-end justify-between pt-8 border-t border-slate-200">
+                                    <div className="text-left space-y-1">
+                                        <p className="text-xs font-bold text-slate-400 uppercase">Verification Details</p>
+                                        <p className="text-sm font-medium">ID: <span className="text-slate-600">{studentId}</span></p>
+                                        <p className="text-sm font-medium">Date: <span className="text-slate-600">{date}</span></p>
+                                        <p className="text-sm font-mono text-eco-green font-bold tracking-tight">{rewardCode}</p>
                                     </div>
 
-                                    <div className="text-center">
-                                        <div className="flex items-center justify-center h-16 w-16 bg-eco-green/10 rounded-full mb-2 mx-auto">
-                                            <span className="text-2xl">✓</span>
+                                    <div className="flex flex-col items-center">
+                                        <div className="h-16 w-16 bg-eco-green/10 rounded-full flex items-center justify-center mb-2">
+                                            <Leaf className="h-8 w-8 text-eco-green" />
                                         </div>
-                                        <p className="text-xs text-slate-500">Verified</p>
-                                    </div>
-
-                                    <div className="text-center">
-                                        <div className="border-t-2 border-slate-900 pt-2 px-8 mb-1">
-                                            <p className="font-semibold text-slate-900">{date}</p>
-                                        </div>
-                                        <p className="text-xs text-slate-500">Date Issued</p>
+                                        <p className="text-sm font-bold text-slate-800">ECO-LEDGER</p>
+                                        <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-widest">Digital Auth</p>
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Watermark */}
-                            <div className="text-center mt-8 pt-8 border-t border-slate-100">
-                                <p className="text-xs text-slate-400">
-                                    SORT Eco-Ledger System • Official Certificate
-                                </p>
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
 
-            {/* Print Styles */}
-            <style jsx global>{`
-                @media print {
-                    body * {
-                        visibility: hidden;
-                    }
-                    .print\\:hidden {
-                        display: none !important;
-                    }
-                    ${certificateRef.current ? `
-                        #__next, 
-                        [data-certificate="true"],
-                        [data-certificate="true"] * {
-                            visibility: visible;
-                        }
-                        [data-certificate="true"] {
+                    {/* Actions */}
+                    <div className={`p-6 border-t flex flex-col sm:flex-row gap-4 items-center justify-between ${isDark ? 'bg-slate-900/50 border-white/5' : 'bg-slate-50 border-slate-100'}`}>
+                        <div className="flex items-center gap-2">
+                            <ShieldCheck className="h-4 w-4 text-eco-green" />
+                            <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>Tamper-proof digital reward</span>
+                        </div>
+                        <div className="flex items-center gap-3 w-full sm:w-auto">
+                            <button 
+                                onClick={() => window.print()}
+                                className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm border transition-all ${isDark ? 'border-white/10 hover:bg-slate-800 text-white' : 'border-slate-200 hover:bg-white text-slate-700 shadow-sm'}`}
+                            >
+                                <Printer className="h-4 w-4" /> Print
+                            </button>
+                            <button 
+                                onClick={handleDownloadPDF}
+                                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-2.5 rounded-xl font-bold text-sm bg-eco-green text-white hover:bg-emerald-600 shadow-lg shadow-eco-green/20 transition-all"
+                            >
+                                <Download className="h-4 w-4" /> Save PDF
+                            </button>
+                        </div>
+                    </div>
+                </motion.div>
+
+                {/* Print Styles */}
+                <style>{`
+                    @media print {
+                        body * { visibility: hidden; }
+                        #certificate-print-area, #certificate-print-area * { visibility: visible; }
+                        #certificate-print-area {
                             position: absolute;
                             left: 0;
                             top: 0;
                             width: 100%;
+                            height: 100%;
+                            margin: 0;
+                            padding: 2cm;
+                            border: 8px solid #10B981 !important;
+                            -webkit-print-color-adjust: exact;
                         }
-                    ` : ''}
-                }
-                
-                @page {
-                    size: A4 landscape;
-                    margin: 0.5cm;
-                }
-            `}</style>
-        </>
+                    }
+                    @page {
+                        size: A4 landscape;
+                        margin: 0.5cm;
+                    }
+                `}</style>
+            </div>
+        </AnimatePresence>
     );
 }

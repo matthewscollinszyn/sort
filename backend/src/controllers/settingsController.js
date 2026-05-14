@@ -1,7 +1,5 @@
-import { PrismaClient } from '../../generated/prisma/index.js';
+import prisma from '../lib/prisma.js';
 import { publishEvent } from '../lib/realtime.js';
-
-const prisma = new PrismaClient();
 
 // ════════════════════════════════════════════════════════════
 // ASSET CATEGORIES MANAGEMENT
@@ -143,7 +141,15 @@ export async function getLocations(req, res) {
 
         const locations = await prisma.location.findMany({
             where,
-            orderBy: { sortOrder: 'asc' }
+            orderBy: { sortOrder: 'asc' },
+            include: {
+                binStatus: {
+                    select: {
+                        fillStatus: true,
+                        lastUpdated: true
+                    }
+                }
+            }
         });
 
         res.json({ success: true, data: locations });
@@ -461,18 +467,20 @@ export async function deleteItemPreset(req, res) {
 // SYSTEM SETTINGS (Points, etc.)
 // ════════════════════════════════════════════════════════════
 
-const DEFAULT_POINTS = [
+const DEFAULT_SETTINGS = [
     { key: 'points_1st', value: '15', label: '1st Reporter Points' },
     { key: 'points_2nd', value: '10', label: '2nd Reporter Points' },
     { key: 'points_3rd', value: '5', label: '3rd Reporter Points' },
+    { key: 'points_gold_threshold', value: '300', label: 'Gold Certificate Quarterly Threshold' },
+    { key: 'current_quarter_end', value: null, label: 'Current Quarter End Date (YYYY-MM-DD)' },
 ];
 
 export async function getSystemSettings(req, res) {
     try {
         const settings = await prisma.systemSettings.findMany();
-        // Merge with defaults so keys always exist
+        // Merge with defaults so keys always exist in the response
         const map = Object.fromEntries(settings.map(s => [s.key, s]));
-        const result = DEFAULT_POINTS.map(d => map[d.key] ?? d);
+        const result = DEFAULT_SETTINGS.map(d => map[d.key] ?? d);
         res.json({ success: true, data: result });
     } catch (error) {
         console.error('Error fetching system settings:', error);
@@ -489,15 +497,20 @@ export async function updateSystemSettings(req, res) {
             return res.status(400).json({ success: false, message: 'settings must be an array' });
         }
 
-        const allowedKeys = DEFAULT_POINTS.map(d => d.key);
+        const allowedKeys = DEFAULT_SETTINGS.map(d => d.key);
         const updates = await Promise.all(
             settings
                 .filter(s => allowedKeys.includes(s.key))
                 .map(s =>
                     prisma.systemSettings.upsert({
                         where: { key: s.key },
-                        update: { value: String(s.value), updatedById: userId },
-                        create: { key: s.key, value: String(s.value), label: DEFAULT_POINTS.find(d => d.key === s.key)?.label, updatedById: userId },
+                        update: { value: s.value !== null ? String(s.value) : null, updatedById: userId },
+                        create: {
+                            key: s.key,
+                            value: s.value !== null ? String(s.value) : null,
+                            label: DEFAULT_SETTINGS.find(d => d.key === s.key)?.label,
+                            updatedById: userId
+                        },
                     })
                 )
         );

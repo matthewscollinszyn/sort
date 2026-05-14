@@ -46,7 +46,7 @@ export function useNotifications(user) {
     }, [notifications, key]);
 
     const addNotification = useCallback((notif) => {
-        const isReport = ['report', 'new_report', 'report_status', 'dispatch'].includes(notif.type);
+        const isReport = ['report', 'new_report', 'report_status', 'report_rank', 'dispatch'].includes(notif.type);
         const item = {
             id: `n_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
             timestamp: new Date().toISOString(),
@@ -89,6 +89,19 @@ export function useNotifications(user) {
                         type = 'new_report';
                         title = 'New Report Created';
                         message = `A new report was submitted at ${data.location}.`;
+                    } else if (userRole === 'STUDENT' && data.userId === userId) {
+                        shouldNotify = true;
+                        type = 'report_rank';
+                        title = 'Report Position Assigned';
+                        const rankLabel = data.reportRankLabel || (data.reportRank === 1 ? '1st' : data.reportRank === 2 ? '2nd' : data.reportRank === 3 ? '3rd' : null);
+                        if (rankLabel && data.reportRank <= 3) {
+                            message = `You were the ${rankLabel} reporter for ${data.location}.`;
+                            if (data.pointsAwarded) {
+                                message += ` You earned ${data.pointsAwarded} points.`;
+                            }
+                        } else {
+                            message = `Your report at ${data.location} was recorded.`;
+                        }
                     }
                 } else if (e.type === 'report.updated') {
                     // Notify student if their report was updated
@@ -97,6 +110,10 @@ export function useNotifications(user) {
                         type = 'report_status';
                         title = 'Report Status Updated';
                         message = `Your report at ${data.location} is now ${data.status}.`;
+                        const rankLabel = data.reportRankLabel || (data.reportRank === 1 ? '1st' : data.reportRank === 2 ? '2nd' : data.reportRank === 3 ? '3rd' : null);
+                        if (rankLabel && data.reportRank <= 3) {
+                            message += ` You were the ${rankLabel} reporter.`;
+                        }
                         if (data.pointsAwarded) {
                             message += ` You earned ${data.pointsAwarded} points!`;
                         }
@@ -126,7 +143,8 @@ export function useNotifications(user) {
                         data: {
                             reportId: data.reportId,
                             status: data.status,
-                            location: data.location
+                            location: data.location,
+                            reportRank: data.reportRank
                         }
                     });
                 }

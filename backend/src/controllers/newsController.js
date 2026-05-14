@@ -1,7 +1,5 @@
-import { PrismaClient } from '../../generated/prisma/index.js';
+import prisma from '../lib/prisma.js';
 import { publishEvent, initializeSse, subscribeToEvents } from '../lib/realtime.js';
-
-const prisma = new PrismaClient();
 
 const DEFAULT_NEWS = [
     {

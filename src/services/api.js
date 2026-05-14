@@ -42,38 +42,42 @@ class ApiService {
     }
 
     async request(endpoint, options = {}) {
-        console.log('[API.request] Called with endpoint:', endpoint, 'options:', options);
         const url = `${this.baseUrl}${endpoint}`;
         const token = this.getToken();
-        console.log('[API.request] Token:', token ? 'EXISTS' : 'MISSING');
+        
+        const isFormData = options.body instanceof FormData;
+        const hasBody = !!options.body;
 
         const config = {
             headers: {
-                'Content-Type': 'application/json',
+                ...(hasBody && !isFormData ? { 'Content-Type': 'application/json' } : {}),
                 ...(token && { Authorization: `Bearer ${token}` }),
                 ...options.headers,
             },
             ...options,
         };
 
-        if (options.body && typeof options.body === 'object') {
+        if (hasBody && typeof options.body === 'object' && !isFormData) {
             config.body = JSON.stringify(options.body);
         }
 
-        console.log('[API.request] Fetching:', url, config);
         try {
             const response = await fetch(url, config);
-            console.log('[API.request] Response status:', response.status, response.statusText);
+            
+            // Check if response is empty (204 No Content)
+            if (response.status === 204) {
+                return { success: true, data: null };
+            }
+
             const data = await response.json();
-            console.log('[API.request] Response data:', data);
 
             if (!response.ok) {
-                throw new Error(data.message || 'Request failed');
+                throw new Error(data.message || `Request failed with status ${response.status}`);
             }
 
             return data;
         } catch (error) {
-            console.error('[API.request] ERROR:', error);
+            console.error(`[API ERROR] ${endpoint}:`, error);
             throw error;
         }
     }
@@ -147,6 +151,10 @@ class ApiService {
         return this.request('/reports/impact-metrics');
     }
 
+    async getPublicMetrics() {
+        return this.request('/reports/public-metrics');
+    }
+
     async getReportById(id) {
         return this.request(`/reports/${id}`);
     }
@@ -190,6 +198,10 @@ class ApiService {
 
     async getLeaderboard() {
         return this.request('/auth/leaderboard');
+    }
+
+    async getQuarterlyImpact() {
+        return this.request('/auth/quarterly-impact');
     }
 
     async getNews() {
@@ -361,6 +373,14 @@ class ApiService {
     // Generic HTTP methods
     async get(endpoint) {
         return this.request(endpoint, { method: 'GET' });
+    }
+
+    getImageUrl(path) {
+        if (!path) return null;
+        if (path.startsWith('http')) return path;
+        // The path usually starts with /uploads
+        const baseUrl = this.baseUrl.replace('/api', '');
+        return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
     }
 
     async post(endpoint, data) {

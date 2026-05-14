@@ -3,7 +3,7 @@
    Modern, responsive authentication for facility staff
    ========================================================= */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -15,17 +15,26 @@ import { useAuth } from '../../contexts/AuthContext';
 
 export default function MRFSignIn() {
     const navigate = useNavigate();
-    const { signin } = useAuth();
+    const { signin, user, loading } = useAuth();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
-    const [loading, setLoading] = useState(false);
+    const [signInLoading, setSignInLoading] = useState(false);
     const [error, setError] = useState('');
+
+    // Redirection if already logged in as MRF Staff
+    useEffect(() => {
+        if (!loading && user) {
+            if (user.role === 'MRF') {
+                navigate('/mrf');
+            }
+        }
+    }, [user, loading, navigate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        setLoading(true);
+        setSignInLoading(true);
 
         try {
             const result = await signin(username, password);
@@ -33,7 +42,7 @@ export default function MRFSignIn() {
             if (result.success) {
                 if (result.user.role !== 'MRF') {
                     setError('Access denied. This portal is for MRF staff only.');
-                    setLoading(false);
+                    setSignInLoading(false);
                     return;
                 }
             } else {
@@ -42,7 +51,7 @@ export default function MRFSignIn() {
         } catch (err) {
             setError('An error occurred during sign in');
         } finally {
-            setLoading(false);
+            setSignInLoading(false);
         }
     };
 
@@ -208,14 +217,14 @@ export default function MRFSignIn() {
 
                             <button
                                 type="submit"
-                                disabled={loading}
+                                disabled={signInLoading || loading}
                                 className="w-full relative overflow-hidden bg-slate-900 text-white py-4 rounded-2xl font-bold shadow-lg shadow-slate-900/20 hover:shadow-xl hover:shadow-slate-900/30 active:scale-[0.98] transition-all disabled:opacity-70 disabled:cursor-not-allowed group"
                             >
-                                <span className={`flex items-center justify-center gap-2 transition-all ${loading ? 'opacity-0' : 'opacity-100'}`}>
+                                <span className={`flex items-center justify-center gap-2 transition-all ${signInLoading ? 'opacity-0' : 'opacity-100'}`}>
                                     Access Dashboard
                                     <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                                 </span>
-                                {loading && (
+                                {signInLoading && (
                                     <div className="absolute inset-0 flex items-center justify-center">
                                         <motion.div
                                             animate={{ rotate: 360 }}

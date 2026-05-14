@@ -26,6 +26,9 @@ import api from '../../services/api';
 import realtimeEvents from '../../lib/realtimeEvents';
 import { useNotifications } from '../../hooks/useNotifications';
 import NotificationPanel from '../../components/NotificationPanel';
+import RewardCertificate from '../../components/RewardCertificate';
+import ProfileModal from '../../components/ProfileModal';
+import UserMenu from '../../components/UserMenu';
 import { useCampusNews, TAG_COLOR_MAP } from '../../hooks/useCampusNews';
 import { useNewsNotifications } from '../../hooks/useNewsNotifications';
 import { useAssetCategories, useItemPresets, useLocations, useUrgencyLevels, useAssetConditions, useWasteTypes } from '../../hooks/useSettings';
@@ -141,8 +144,8 @@ const assetStatusBadge = {
 };
 
 const binStatusLabel = {
-  full: { color: 'text-red-400', bg: 'bg-red-400/15', label: 'Full' },
-  empty: { color: 'text-emerald-400', bg: 'bg-emerald-400/15', label: 'Available' },
+    full: { color: 'text-red-400', bg: 'bg-red-400/15', label: 'Full' },
+    empty: { color: 'text-emerald-400', bg: 'bg-emerald-400/15', label: 'Available' },
 };
 /* ── Icon and color mapping for asset categories ──────────── */
 const CATEGORY_DEFAULTS = {
@@ -207,92 +210,6 @@ function Card({ children, className = '', glow = false, theme = 'dark', ...props
     );
 }
 
-/* ── User Avatar Dropdown ─────────────────────────────────── */
-function UserMenu({ me, theme = 'dark', onSignOut }) {
-    const [open, setOpen] = useState(false);
-    const ref = useRef(null);
-    const navigate = useNavigate();
-
-    useEffect(() => {
-        const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, []);
-
-    return (
-        <div className="relative" ref={ref}>
-            <button onClick={() => setOpen((p) => !p)}
-                className={`flex items-center gap-2 rounded-xl border px-2 py-1.5 transition-all ${open
-                    ? 'border-eco-green/40 bg-eco-green/10'
-                    : theme === 'dark'
-                        ? 'border-white/10 bg-slate-800/40 hover:border-white/20'
-                        : 'border-slate-300 bg-slate-100/40 hover:border-slate-400'
-                    }`}>
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xs font-bold shadow-sm">
-                    {me.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                </div>
-                <span className={`hidden sm:block text-xs font-medium max-w-[7rem] truncate ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{me.name.split(' ')[0]}</span>
-                <ChevronDown className={`h-3 w-3 text-slate-500 transition-transform ${open ? 'rotate-180' : ''}`} />
-            </button>
-
-            <AnimatePresence>
-                {open && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 6, scale: 0.97 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: 6, scale: 0.97 }}
-                        transition={{ duration: 0.15 }}
-                        className={`absolute right-0 top-full mt-2 w-60 rounded-2xl border backdrop-blur-xl shadow-2xl z-50 overflow-hidden ${theme === 'dark'
-                            ? 'border-white/10 bg-slate-900/95 shadow-black/40'
-                            : 'border-slate-200 bg-white/95 shadow-slate-900/10'
-                            }`}
-                    >
-                        <div className={`px-4 py-3 border-b ${theme === 'dark' ? 'border-white/5' : 'border-slate-100'}`}>
-                            <div className="flex items-center gap-3">
-                                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-bold">
-                                    {me.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className={`text-sm font-semibold truncate ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{me.name}</p>
-                                    <p className="text-xs text-slate-500">{me.department || 'Environmental Science Dept.'}</p>
-                                </div>
-                            </div>
-                            <div className={`mt-2 flex items-center gap-2 rounded-lg px-2.5 py-1.5 ${theme === 'dark' ? 'bg-slate-800/60' : 'bg-slate-100'}`}>
-                                <GraduationCap className="h-3.5 w-3.5 text-blue-400" />
-                                <span className={`text-xs font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Faculty</span>
-                                <span className="ml-auto text-xs text-slate-500">{me.reports} reports</span>
-                            </div>
-                        </div>
-                        <div className="py-1.5">
-                            {[
-                                { icon: User, label: 'My Profile', action: () => setOpen(false) },
-                                { icon: Settings, label: 'Settings', action: () => setOpen(false) },
-                                { icon: FileText, label: 'My Reports', action: () => setOpen(false) },
-                            ].map((item) => (
-                                <button key={item.label} onClick={item.action}
-                                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors ${theme === 'dark'
-                                        ? 'text-slate-300 hover:bg-white/[0.04] hover:text-white'
-                                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
-                                        }`}>
-                                    <item.icon className="h-4 w-4 text-slate-500" />
-                                    {item.label}
-                                </button>
-                            ))}
-                        </div>
-                        <div className={`border-t py-1.5 ${theme === 'dark' ? 'border-white/5' : 'border-slate-100'}`}>
-                            <button onClick={onSignOut}
-                                className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-400 hover:bg-red-400/5 hover:text-red-300 transition-colors">
-                                <LogOut className="h-4 w-4" />
-                                Sign Out
-                            </button>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </div>
-    );
-}
-
 /* ── Helper: Create user object from auth context ────────── */
 function createUserFromAuth(authUser) {
     if (!authUser) {
@@ -301,6 +218,10 @@ function createUserFromAuth(authUser) {
             name: 'Faculty User',
             department: 'Environmental Science Dept.',
             role: 'faculty',
+            points: 0,
+            quarterlyPoints: 0,
+            lifetimePoints: 0,
+            eligibleForCertificate: false,
             reports: 0
         };
     }
@@ -311,8 +232,14 @@ function createUserFromAuth(authUser) {
         name: fullName,
         department: authUser.department || 'Environmental Science Dept.',
         role: 'faculty',
+        points: authUser.points || 0,
+        quarterlyPoints: authUser.quarterlyPoints || 0,
+        lifetimePoints: authUser.lifetimePoints || 0,
+        eligibleForCertificate: authUser.eligibleForCertificate || false,
         reports: authUser.reports || 0,
         email: authUser.email || '',
+        studentId: authUser.studentId || authUser.id, // Teachers might use their ID
+        id: authUser.id
     };
 }
 
@@ -350,6 +277,9 @@ export default function TeacherLandingPage() {
     const [realAssetReports, setRealAssetReports] = useState([]);
     const [reportsLoading, setReportsLoading] = useState(false);
     const [notifOpen, setNotifOpen] = useState(false);
+    const [certificateOpen, setCertificateOpen] = useState(false);
+    const [certificateData, setCertificateData] = useState(null);
+    const [quarterlyImpact, setQuarterlyImpact] = useState(0);
 
     // Notifications
     const { notifications, unreadCount, addNotification, markRead, markAllRead, clearAll } = useNotifications(user);
@@ -387,6 +317,26 @@ export default function TeacherLandingPage() {
 
     // Use real reports if available, otherwise fallback to mock
     const myBinReports = realReports.length > 0 ? realReports : [];
+
+    const buildRewardCode = (userId, type = 'REWARD') => {
+        const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        return `${type}-${userId}-${datePart}`;
+    };
+
+    const openCertificate = (type = 'MONTHLY') => {
+        if (!user) return;
+        const rewardCode = buildRewardCode(user.id, type === 'QUARTERLY' ? 'QUARTERLY' : 'REWARD');
+        setCertificateData({
+            studentName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username,
+            studentId: user.studentId || user.id,
+            points: type === 'QUARTERLY' ? (me.quarterlyPoints || 0) : (me.points || 0),
+            impact: quarterlyImpact,
+            rewardCode,
+            date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+            type: type === 'QUARTERLY' ? 'QUARTERLY' : 'MONTHLY',
+        });
+        setCertificateOpen(true);
+    };
 
     // Fetch real reports from API
     const fetchReports = async () => {
@@ -509,7 +459,6 @@ export default function TeacherLandingPage() {
             }
         } catch (err) {
             console.error('Failed to fetch reports:', err);
-            // Fallback to mock data on error
         } finally {
             setReportsLoading(false);
         }
@@ -545,10 +494,16 @@ export default function TeacherLandingPage() {
 
     useEffect(() => { if (tab && tab !== activeTab) setActiveTab(tab); }, [tab]);
 
-    // Redirect if not authenticated
+    // Redirect if not authenticated or not a teacher
     useEffect(() => {
-        if (!loading && !user) {
-            navigate('/');
+        if (!loading) {
+            if (!user) {
+                navigate('/');
+            } else if (user.role !== 'TEACHER') {
+                // If wrong role, redirect to their correct dashboard or home
+                const ROLE_ROUTES = { STUDENT: '/student', ADMIN: '/admin', MRF: '/mrf' };
+                navigate(ROLE_ROUTES[user.role] || '/');
+            }
         }
     }, [user, loading, navigate]);
 
@@ -627,7 +582,9 @@ export default function TeacherLandingPage() {
                             <NotificationPanel
                                 open={notifOpen}
                                 onClose={() => setNotifOpen(false)}
-                                notifications={notifications}
+                                notifications={notifications.map(n =>
+                                    n.type === 'reward' && n.hasAction ? { ...n, onClick: openCertificate } : n
+                                )}
                                 unreadCount={unreadCount}
                                 onMarkRead={markRead}
                                 onMarkAllRead={markAllRead}
@@ -635,9 +592,8 @@ export default function TeacherLandingPage() {
                                 theme={theme}
                             />
                         </div>
-
                         {/* User Avatar Menu */}
-                        <UserMenu me={me} theme={theme} onSignOut={handleSignOut} />
+                        <UserMenu theme={theme} onTabChange={handleTab} />
                     </div>
                 </div>
             </motion.nav>
@@ -682,7 +638,7 @@ export default function TeacherLandingPage() {
 
                     {/* ── Tab Content ────────────────────────── */}
                     <AnimatePresence mode="wait">
-                        {activeTab === 'home' && <HomeTab key="home" me={me} goTab={handleTab} pendingBinCount={pendingBinCount} pendingAssetCount={pendingAssetCount} myBinReports={myBinReports} myAssetReports={myAssetReports} addNotification={addNotification} userId={user?.id} />}
+                        {activeTab === 'home' && <HomeTab key="home" me={me} goTab={handleTab} pendingBinCount={pendingBinCount} pendingAssetCount={pendingAssetCount} myBinReports={myBinReports} myAssetReports={myAssetReports} addNotification={addNotification} userId={user?.id} openCertificate={openCertificate} quarterlyImpact={quarterlyImpact} />}
                         {activeTab === 'report' && <ReportTab key="report" onReportSubmitted={fetchReports} reportTypes={REPORT_TYPES} itemPresets={allItemPresets} binLocations={binLocationsData} roomLocations={roomLocationsData} wasteTypes={wasteTypes} urgencyLevels={urgencyLevels} assetConditions={assetConditions} />}
                         {activeTab === 'map' && <TeacherMapTab key="map" />}
                         {activeTab === 'activity' && <ActivityTab key="activity" myBinReports={myBinReports} myAssetReports={myAssetReports} onRefresh={fetchReports} loading={reportsLoading} />}
@@ -722,6 +678,21 @@ export default function TeacherLandingPage() {
                     );
                 })}
             </nav>
+
+            {/* ════════ REWARD CERTIFICATE MODAL ════════════ */}
+            {certificateData && (
+                <RewardCertificate
+                    isOpen={certificateOpen}
+                    onClose={() => setCertificateOpen(false)}
+                    studentName={certificateData.studentName}
+                    studentId={certificateData.studentId}
+                    points={certificateData.points}
+                    rewardCode={certificateData.rewardCode}
+                    date={certificateData.date}
+                    type={certificateData.type}
+                    impact={certificateData.impact}
+                />
+            )}
         </div>
     );
 }

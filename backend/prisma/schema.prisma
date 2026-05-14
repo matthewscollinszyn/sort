@@ -49,87 +49,133 @@ enum LocationType {
   ROOM_LOCATION
 }
 
+enum HistoryType {
+  MONTHLY
+  QUARTERLY
+}
+
 model User {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique
-  password  String
-  role      Role     @default(STUDENT)
-  
+  id       Int    @id @default(autoincrement())
+  username String @unique
+  password String
+  role     Role   @default(STUDENT)
+
   // Profile info
-  firstName  String?
-  lastName   String?
-  email      String?  @unique
-  
+  firstName String?
+  lastName  String?
+  email     String? @unique
+
   // Student-specific fields
-  studentId  String?  @unique
-  lrn        String?  @unique  // Learner Reference Number
-  course     String?
+  lrn        String? @unique // Learner Reference Number
+  yearLevel  String?
   section    String?
-  department String?
-  
+
   // Gamification
-  points     Int      @default(0)
-  reports    Int      @default(0)
-  
+  points                 Int     @default(0) // Current month points (resets monthly)
+  quarterlyPoints        Int     @default(0) // Current quarter points (resets quarterly)
+  lifetimePoints         Int     @default(0) // Lifetime total points
+  eligibleForCertificate Boolean @default(false)
+  lastAwardedQuarter     Int?
+  lastAwardedYear        Int?
+  reports                Int     @default(0)
+
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
-  submittedReports Report[]  @relation("UserReports")
-  assignedReports Report[]   @relation("AssignedStaffReports")
-  newsPosts     CampusNews[] @relation("PublishedNews")
+  submittedReports   Report[]         @relation("UserReports")
+  assignedReports    Report[]         @relation("AssignedStaffReports")
+  newsPosts          CampusNews[]     @relation("PublishedNews")
+  pointHistory       PointHistory[]
+  uploadedCampusMaps CampusMap[]      @relation("UploadedCampusMaps")
+  updatedSettings    SystemSettings[] @relation("UpdatedSystemSettings")
+  updatedBinStatuses BinStatus[]      @relation("BinStatusUpdatedBy")
+  sessions           Session[]
 
   @@map("users")
 }
 
-model Report {
-  id          Int          @id @default(autoincrement())
-  location    String
-  notes       String?
-  photoUrl    String?
-  urgency     String       @default("normal")
-  wasteType   String       @default("general")
-  type        ReportType   @default(WASTE)
-  status      ReportStatus @default(PENDING)
-  
-  // MRF Operations fields
-  assignedStaffId  Int?
-  kilosCollected   Float?
-  assetAction      AssetAction?
-  collectionDate   DateTime?
-  
-  // User relation
-  userId      Int
-  user        User         @relation("UserReports", fields: [userId], references: [id], onDelete: Cascade)
-  assignedStaff User?      @relation("AssignedStaffReports", fields: [assignedStaffId], references: [id], onDelete: SetNull)
-  
-  // Timestamps
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+model PointHistory {
+  id        Int         @id @default(autoincrement())
+  userId    Int
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points    Int
+  type      HistoryType @default(MONTHLY)
+  month     Int? // 1-12 (for monthly)
+  quarter   Int? // 1-4 (for quarterly)
+  year      Int
+  createdAt DateTime    @default(now())
 
-  @@map("reports")
+  @@index([userId])
+  @@index([month, year])
+  @@index([quarter, year])
+  @@index([type])
+  @@map("point_history")
+}
+
+model Report {
+  id              Int          @id @default(autoincrement())
+  location        String
+  locationId      Int?
+  reportRank      Int?
+  notes           String?
+  photoUrl        String?
+  urgencyId       Int
+  wasteTypeId     Int?
+  assetCategoryId Int?
+  itemPresetId    Int?
+  type            ReportType   @default(WASTE)
+  status          ReportStatus @default(PENDING)
+
+  // MRF Operations fields
+  assignedStaffId Int?
+  kilosCollected  Float?
+  assetAction     AssetAction?
+  collectionDate  DateTime?
+
+  // User relation
+  userId        Int
+  user          User           @relation("UserReports", fields: [userId], references: [id], onDelete: Cascade)
+  assignedStaff User?          @relation("AssignedStaffReports", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  locationRef   Location?      @relation("LocationReports", fields: [locationId], references: [id], onDelete: SetNull)
+  urgency       UrgencyLevel   @relation("UrgencyLevelReports", fields: [urgencyId], references: [id])
+  wasteType     WasteType?     @relation("WasteTypeReports", fields: [wasteTypeId], references: [id], onDelete: SetNull)
+  assetCategory AssetCategory? @relation("AssetCategoryReports", fields: [assetCategoryId], references: [id], onDelete: SetNull)
+  itemPreset    ItemPreset?    @relation("ItemPresetReports", fields: [itemPresetId], references: [id], onDelete: SetNull)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([userId])
   @@index([status])
   @@index([assignedStaffId])
+  @@index([locationId])
+  @@index([urgencyId])
+  @@index([wasteTypeId])
+  @@index([assetCategoryId])
+  @@index([itemPresetId])
   @@index([type, status])
+  @@index([locationId, type, status])
+  @@map("reports")
 }
 
 model CampusNews {
-  id           Int      @id @default(autoincrement())
-  tag          String
-  date         String
-  title        String
-  desc         String
+  id            Int      @id @default(autoincrement())
+  tag           String
+  date          String
+  title         String
+  desc          String
   publishedById Int?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  publishedBy  User?    @relation("PublishedNews", fields: [publishedById], references: [id], onDelete: SetNull)
+  publishedBy User? @relation("PublishedNews", fields: [publishedById], references: [id], onDelete: SetNull)
 
-  @@map("campus_news")
   @@index([createdAt])
   @@index([publishedById])
+  @@map("campus_news")
 }
 
 model AssetCategory {
@@ -142,9 +188,10 @@ model AssetCategory {
   updatedAt DateTime @updatedAt
 
   itemPresets ItemPreset[] @relation("CategoryPresets")
+  reports     Report[]     @relation("AssetCategoryReports")
 
-  @@map("asset_categories")
   @@index([enabled, sortOrder])
+  @@map("asset_categories")
 }
 
 model ItemPreset {
@@ -157,10 +204,11 @@ model ItemPreset {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  category   AssetCategory @relation("CategoryPresets", fields: [categoryId], references: [id], onDelete: Cascade)
+  category AssetCategory @relation("CategoryPresets", fields: [categoryId], references: [id], onDelete: Cascade)
+  reports  Report[]      @relation("ItemPresetReports")
 
-  @@map("item_presets")
   @@index([categoryId, enabled, sortOrder])
+  @@map("item_presets")
 }
 
 model Location {
@@ -168,98 +216,142 @@ model Location {
   code      String       @unique // e.g., LOC-01, ROOM-01
   name      String
   type      LocationType
-  building  String?      // For ROOM_LOCATION, which building it belongs to
+  building  String? // For ROOM_LOCATION, which building it belongs to
   enabled   Boolean      @default(true)
   sortOrder Int          @default(0)
-  
+
   // Map coordinates for visual representation
-  mapX      Float?
-  mapY      Float?
-  
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  mapX Float?
+  mapY Float?
 
-  @@map("locations")
-  @@index([type, enabled, sortOrder])
-}
-
-model CampusMap {
-  id        Int      @id @default(autoincrement())
-  imageData String   @db.Text // Base64 encoded image
-  imageName String?
-  imageSize String?
-  uploadedById Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Relations
+  binStatus BinStatus?
+  reports   Report[]   @relation("LocationReports")
+
+  @@index([type, enabled, sortOrder])
+  @@index([name])
+  @@map("locations")
+}
+
+model CampusMap {
+  id           Int      @id @default(autoincrement())
+  imageData    String   @db.Text // Base64 encoded image
+  imageName    String?
+  imageSize    String?
+  uploadedById Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  uploadedBy User? @relation("UploadedCampusMaps", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([uploadedById])
   @@map("campus_maps")
 }
 
 model BinStatus {
-  id         Int      @id @default(autoincrement())
-  locationId Int      @unique // References Location.id
-  fillStatus String   @default("empty") // empty, full
+  id          Int      @id @default(autoincrement())
+  locationId  Int      @unique // References Location.id
+  fillStatus  String   @default("empty") // empty, full
   lastUpdated DateTime @default(now())
-  updatedBy  Int?  // User ID who updated the status
-  
+  updatedBy   Int? // User ID who updated the status
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("bin_statuses")
+  // Relations
+  location      Location @relation(fields: [locationId], references: [id])
+  updatedByUser User?    @relation("BinStatusUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+
   @@index([fillStatus])
+  @@index([updatedBy])
+  @@map("bin_statuses")
 }
 
 model SystemSettings {
-  id        Int      @id @default(autoincrement())
-  key       String   @unique // e.g., "points_1st", "points_2nd", "points_3rd"
-  value     String   // Stored as string, parse as needed
-  label     String?  // Human-readable label
+  id          Int      @id @default(autoincrement())
+  key         String   @unique // e.g., "points_1st", "points_2nd", "points_3rd"
+  value       String?  // Stored as string, parse as needed; nullable for optional values like current_quarter_end
+  label       String? // Human-readable label
   updatedById Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
+  updatedBy User? @relation("UpdatedSystemSettings", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([updatedById])
   @@map("system_settings")
 }
 
 model WasteType {
   id        Int      @id @default(autoincrement())
   key       String   @unique // e.g., "recyclable", "biodegradable"
-  label     String   // Display name
+  label     String // Display name
   emoji     String   @default("♻️")
   enabled   Boolean  @default(true)
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("waste_types")
+  reports Report[] @relation("WasteTypeReports")
+
   @@index([enabled, sortOrder])
+  @@map("waste_types")
 }
 
 model UrgencyLevel {
   id          Int      @id @default(autoincrement())
   key         String   @unique // e.g., "low", "normal", "high"
-  label       String   // Display name
-  description String?  // Short description
-  color       String?  // Color class for UI
+  label       String // Display name
+  description String? // Short description
+  color       String? // Color class for UI
   enabled     Boolean  @default(true)
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@map("urgency_levels")
+  reports Report[] @relation("UrgencyLevelReports")
+
   @@index([enabled, sortOrder])
+  @@map("urgency_levels")
 }
 
-model AssetCondition {
-  id          Int      @id @default(autoincrement())
+// ─── Multi-device session tracking ──────────────────────────────────────────
+// Each login creates one Session row. Revoking a row immediately invalidates
+// that device without affecting any other active session.
+model Session {
+  id          String   @id @default(cuid())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // SHA-256 hash of the raw JWT — never store the token itself
+  tokenHash   String   @unique
+
+  // Device identity (optional, populated from User-Agent on login)
+  deviceName  String?
+  ipAddress   String?
+  userAgent   String?
+
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt]) // used by cleanup to prune expired rows
+  @@map("sessions")
+}
+
+model AssetCondition {  id          Int      @id @default(autoincrement())
   key         String   @unique // e.g., "damaged", "malfunctioning"
-  label       String   // Display name
-  description String?  // Short description
+  label       String // Display name
+  description String? // Short description
   enabled     Boolean  @default(true)
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@map("asset_conditions")
   @@index([enabled, sortOrder])
+  @@map("asset_conditions")
 }

@@ -104,6 +104,6 @@ export const statusBadge = {
     [BIN_STATUS.COLLECTED]: 'bg-emerald-400/15 text-emerald-400 border-emerald-400/20',
 };
 export const binStatusLabel = {
-    full: { color: 'text-red-400', bg: 'bg-red-400/15', label: 'Full' },
+    full: { color: 'text-red-400', bg: 'bg-red-400/15', label: 'Bin Location Unavailable' },
     empty: { color: 'text-emerald-400', bg: 'bg-emerald-400/15', label: 'Available' },
 };

@@ -1,6 +1,4 @@
-import { PrismaClient } from '../../generated/prisma/index.js';
-
-const prisma = new PrismaClient();
+import prisma from './prisma.js';
 
 /**
  * Automatically delete reports based on retention policies:
@@ -10,7 +8,7 @@ const prisma = new PrismaClient();
 export const runCleanup = async () => {
     try {
         console.log('\n🧹 Running scheduled report cleanup...');
-        
+
         // 1. Retention Policy: DISMISSED reports
         // Previously: Delete after 5 minutes. 
         // Now: We keep them in the database so MRF staff can see history.
@@ -30,6 +28,14 @@ export const runCleanup = async () => {
         */
 
         console.log('   ℹ️  Retention policy: Reports are now preserved in DB. Admin view is filtered in controller.');
+
+        // 2. Purge expired Session rows (prevents table from growing unboundedly)
+        const expiredSessions = await prisma.session.deleteMany({
+            where: { expiresAt: { lt: new Date() } }
+        });
+        if (expiredSessions.count > 0) {
+            console.log(`   ✅ Removed ${expiredSessions.count} expired session(s)`);
+        }
 
     } catch (error) {
         console.error('   ❌ Error in runCleanup:', error);

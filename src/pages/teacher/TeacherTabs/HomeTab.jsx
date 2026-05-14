@@ -9,6 +9,7 @@ import { impactStats, assetReports, ASSET_STATUS, BIN_STATUS } from '../../../da
 import { useCampusNews, TAG_COLOR_MAP } from '../../../hooks/useCampusNews';
 import { useNewsNotifications } from '../../../hooks/useNewsNotifications';
 import { Card, fadeUp, stagger } from './shared';
+import PublicMetrics from '../../../components/PublicMetrics';
 
 const quickActions = [
     { label: 'Report Issue', desc: 'Items, waste, equipment', icon: Armchair, color: 'from-blue-500 to-indigo-500', tab: 'report' },
@@ -30,7 +31,7 @@ const TAG_ICON_MAP = {
     'Update': Globe,
 };
 
-export default function HomeTab({ me, goTab, pendingBinCount, pendingAssetCount, myBinReports, myAssetReports, addNotification, userId }) {
+export default function HomeTab({ me, goTab, pendingBinCount, pendingAssetCount, myBinReports, myAssetReports, addNotification, userId, openCertificate, quarterlyImpact = 0 }) {
     const { theme } = useTheme();
     const { news: campusUpdates } = useCampusNews(true);
     useNewsNotifications(userId, campusUpdates, addNotification);
@@ -56,16 +57,20 @@ export default function HomeTab({ me, goTab, pendingBinCount, pendingAssetCount,
                         </div>
                         <div className="flex gap-5 sm:gap-8 sm:text-right">
                             <div>
-                                <p className="text-xs text-slate-500">Waste Reports</p>
-                                <p className={`text-2xl sm:text-3xl font-extrabold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{myBinReports.length}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs text-slate-500">Asset Reports</p>
-                                <p className={`text-2xl sm:text-3xl font-extrabold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{myAssetReports.length}</p>
+                                <p className="text-xs text-slate-500">Reports</p>
+                                <p className={`text-2xl sm:text-3xl font-extrabold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>{myBinReports.length + myAssetReports.length}</p>
                             </div>
                         </div>
                     </div>
                 </Card>
+            </motion.section>
+
+            {/* ─── PUBLIC IMPACT METRICS ─── */}
+            <motion.section variants={fadeUp} initial="hidden" animate="visible" custom={1}>
+                <h2 className={`text-lg font-bold mb-4 flex items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                    <Globe className="h-5 w-5 text-eco-green" /> Campus Impact
+                </h2>
+                <PublicMetrics theme={theme} />
             </motion.section>
 
             {/* ─── QUICK ACTIONS ─── */}

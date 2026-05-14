@@ -201,6 +201,10 @@ class ApiService {
     return this.request('/reports/impact-metrics');
   }
 
+  async getPublicMetrics(): Promise<ApiResponse<{ treesSaved: number; kgRecycled: number; campusProgress: number }>> {
+    return this.request('/reports/public-metrics');
+  }
+
   async getReportById(id: string): Promise<ApiResponse> {
     return this.request(`/reports/${id}`);
   }

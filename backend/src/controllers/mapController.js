@@ -1,7 +1,5 @@
-import { PrismaClient } from '../../generated/prisma/index.js';
+import prisma from '../lib/prisma.js';
 import { publishEvent } from '../lib/realtime.js';
-
-const prisma = new PrismaClient();
 
 // Upload or update campus map
 export const uploadCampusMap = async (req, res) => {

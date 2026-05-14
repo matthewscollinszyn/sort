@@ -14,7 +14,7 @@ import {
   BookOpen, Hash, Upload, X, Mail, Phone, Moon,
   CalendarDays, Megaphone, TrendingUp, Award, Newspaper,
   Building2, FlaskConical, Landmark, HandMetal, ArrowRight,
-  User, Loader2,
+  User, Loader2, Layout,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
@@ -331,8 +331,21 @@ const campusPartners = [
 export default function LandingPage() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { signin, error: authError, loading: authLoading, clearError } = useAuth();
+  const { signin, user, error: authError, loading: authLoading, clearError } = useAuth();
   const [authMode, setAuthMode] = useState('signin');
+
+  // Redirection if already logged in
+  useEffect(() => {
+    if (!authLoading && user) {
+      const ROLE_ROUTES = {
+        STUDENT: '/student',
+        TEACHER: '/teacher',
+        ADMIN: '/admin',
+        MRF: '/mrf'
+      };
+      navigate(ROLE_ROUTES[user.role] || '/student');
+    }
+  }, [user, authLoading, navigate]);
 
   // Campus news from shared localStorage hook
   const { news: campusUpdates } = useCampusNews();
@@ -341,8 +354,6 @@ export default function LandingPage() {
   const demoCredentials = [
     { role: 'Student', username: 'student', password: 'student123', icon: GraduationCap, color: 'from-blue-500 to-cyan-500' },
     { role: 'Teacher', username: 'teacher', password: 'teacher123', icon: Users, color: 'from-amber-500 to-orange-500' },
-    { role: 'Admin', username: 'admin', password: 'admin123', icon: ShieldCheck, color: 'from-purple-500 to-pink-500' },
-    { role: 'MRF Staff', username: 'ricomendoza', password: 'rico123', icon: Truck, color: 'from-eco-green to-teal-500' },
   ];
 
   // Student ID format validator: 3 letters + 6 digits + 2 digits = RSE06240300
@@ -368,6 +379,7 @@ export default function LandingPage() {
   const [loginFocused, setLoginFocused] = useState(false);
   const [pwFocused, setPwFocused] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
+  const [selectedRole, setSelectedRole] = useState('STUDENT'); // STUDENT, TEACHER, STAFF
 
   // Legacy state for compatibility
   const [idValue, setIdValue] = useState('');
@@ -412,11 +424,12 @@ export default function LandingPage() {
 
     setSigningIn(true);
     try {
-      await signin(username, password);
-      // Navigation is handled by AuthContext based on role
+      const result = await signin(username, password);
+      // Navigation is handled by AuthContext if successful
+      if (result && !result.success) {
+        setSigningIn(false);
+      }
     } catch (err) {
-      // Error is handled by AuthContext
-    } finally {
       setSigningIn(false);
     }
   };
@@ -462,9 +475,21 @@ export default function LandingPage() {
             >
               {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
-            <a href="#login" className="eco-btn-primary text-xs !px-3 !py-1.5 sm:!px-4 sm:!py-2 shadow-lg shadow-eco-green/25">
-              <LogIn className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Sign In</span>
-            </a>
+            {user ? (
+              <button
+                onClick={() => {
+                  const ROLE_ROUTES = { STUDENT: '/student', TEACHER: '/teacher', ADMIN: '/admin', MRF: '/mrf' };
+                  navigate(ROLE_ROUTES[user.role] || '/student');
+                }}
+                className="eco-btn-primary text-xs !px-3 !py-1.5 sm:!px-4 sm:!py-2 shadow-lg shadow-eco-green/25"
+              >
+                <Layout className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Dashboard</span>
+              </button>
+            ) : (
+              <a href="#login" className="eco-btn-primary text-xs !px-3 !py-1.5 sm:!px-4 sm:!py-2 shadow-lg shadow-eco-green/25">
+                <LogIn className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Sign In</span>
+              </a>
+            )}
           </div>
         </div>
       </motion.nav>
@@ -933,7 +958,8 @@ export default function LandingPage() {
             </h2>
             <p className={`mt-2 ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'
               }`}>
-              Sign in with your LRN and password
+              {selectedRole === 'STUDENT' ? 'Sign in with your Student ID/LRN' :
+               'Sign in with your Faculty ID'}
             </p>
           </motion.div>
 
@@ -951,42 +977,57 @@ export default function LandingPage() {
             <div className={`absolute -top-20 left-1/2 -translate-x-1/2 h-40 w-80 rounded-full bg-eco-green/8 blur-2xl transition-opacity duration-500 ${loginFocused || pwFocused ? 'opacity-100' : 'opacity-0'}`} />
             <div className="relative space-y-5">
 
-              {/* Demo Credentials Section */}
-              <div>
-                <p className={`mb-3 text-xs font-semibold uppercase tracking-wider text-center ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'
-                  }`}>
-                  Quick Demo Access
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {demoCredentials.map((cred) => (
+              {/* Role Selection Tabs */}
+              <div className={`flex p-1 rounded-xl ${theme === 'dark' ? 'bg-slate-800/50' : 'bg-slate-100'}`}>
+                {[
+                  { id: 'STUDENT', label: 'Student', icon: GraduationCap },
+                  { id: 'TEACHER', label: 'Teacher', icon: Users },
+                ].map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => { setSelectedRole(r.id); clearError(); }}
+                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-bold rounded-lg transition-all ${
+                      selectedRole === r.id
+                        ? 'bg-white text-eco-green shadow-sm'
+                        : theme === 'dark' ? 'text-slate-400 hover:text-slate-300' : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    <r.icon className="h-3.5 w-3.5" />
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Demo Credentials Section (Collapsible or just small) */}
+              <div className="pt-1">
+                <div className="grid grid-cols-2 gap-2 opacity-60 hover:opacity-100 transition-opacity">
+                  {demoCredentials.filter(c => 
+                    (selectedRole === 'STUDENT' && c.role === 'Student') ||
+                    (selectedRole === 'TEACHER' && c.role === 'Teacher') ||
+                    (selectedRole === 'STAFF' && (c.role === 'Admin' || c.role === 'MRF Staff'))
+                  ).map((cred) => (
                     <button
                       key={cred.role}
                       type="button"
                       onClick={() => fillDemoCredentials(cred)}
-                      className={`group relative overflow-hidden rounded-xl border p-3 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${username === cred.username
-                        ? 'border-eco-green/50 ring-2 ring-eco-green/20'
+                      className={`group relative overflow-hidden rounded-xl border p-2 transition-all duration-200 ${username === cred.username
+                        ? 'border-eco-green/50 ring-1 ring-eco-green/20 bg-eco-green/5'
                         : theme === 'dark'
-                          ? 'border-white/10 bg-slate-800/50 hover:border-white/20 hover:bg-slate-800'
-                          : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100'
+                          ? 'border-white/10 bg-slate-800/30'
+                          : 'border-slate-200 bg-slate-50'
                         }`}
                     >
-                      <div className={`absolute inset-0 bg-gradient-to-br ${cred.color} opacity-0 group-hover:opacity-10 transition-opacity`} />
-                      <div className="relative flex flex-col items-center gap-1.5">
-                        <div className={`flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br ${cred.color} text-white`}>
-                          <cred.icon className="h-4 w-4" />
+                      <div className="relative flex items-center gap-2">
+                        <div className={`flex h-6 w-6 items-center justify-center rounded-lg bg-gradient-to-br ${cred.color} text-white`}>
+                          <cred.icon className="h-3 w-3" />
                         </div>
-                        <span className={`text-xs font-semibold ${theme === 'dark' ? 'text-white' : 'text-slate-900'
-                          }`}>{cred.role}</span>
+                        <span className={`text-[10px] font-bold ${theme === 'dark' ? 'text-slate-300' : 'text-slate-600'
+                          }`}>{cred.role} Demo</span>
                       </div>
                     </button>
                   ))}
                 </div>
-              </div>
-
-              <div className={`flex items-center gap-3 ${theme === 'dark' ? 'text-slate-600' : 'text-slate-400'}`}>
-                <div className="flex-1 h-px bg-current opacity-30" />
-                <span className="text-xs font-medium">or enter credentials</span>
-                <div className="flex-1 h-px bg-current opacity-30" />
               </div>
 
               {/* Error Message */}
@@ -1004,7 +1045,9 @@ export default function LandingPage() {
               <div>
                 <label className={`mb-2 block text-xs font-semibold uppercase tracking-wider ${theme === 'dark' ? 'text-slate-400' : 'text-slate-600'
                   }`}>
-                  Username
+                  {selectedRole === 'STUDENT' ? 'Student ID / LRN' :
+                   selectedRole === 'TEACHER' ? 'Faculty ID' :
+                   'Username'}
                 </label>
                 <div className={`flex items-center gap-3 rounded-xl border px-4 py-3 transition-all duration-200 ${theme === 'dark' ? 'bg-slate-800/80' : 'bg-slate-50'
                   } ${loginFocused
@@ -1018,7 +1061,7 @@ export default function LandingPage() {
                     onChange={(e) => { setUsername(e.target.value); clearError(); }}
                     onFocus={() => setLoginFocused(true)}
                     onBlur={() => setLoginFocused(false)}
-                    placeholder="Enter your username"
+                    placeholder={selectedRole === 'STUDENT' ? 'e.g. LRN000000001' : 'Enter your ID/Username'}
                     autoComplete="username"
                     className={`flex-1 bg-transparent text-sm outline-none ${theme === 'dark' ? 'text-white placeholder:text-slate-600' : 'text-slate-900 placeholder:text-slate-400'
                       }`}
@@ -1048,24 +1091,26 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={!username.trim() || !password.trim() || signingIn}
-                className="w-full flex items-center justify-center gap-2 rounded-xl bg-eco-green py-3.5 text-sm font-bold text-white shadow-lg shadow-eco-green/25 transition-all duration-200 hover:bg-eco-green-dark hover:shadow-eco-green/40 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
-              >
-                {signingIn ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Signing In...
-                  </>
-                ) : (
-                  <>
-                    <LogIn className="h-4 w-4" />
-                    Sign In
-                  </>
-                )}
-              </button>
+              {/* Submit Button & Links */}
+              <div className="space-y-4 pt-2">
+                <button
+                  type="submit"
+                  disabled={!username.trim() || !password.trim() || signingIn}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-eco-green py-3.5 text-sm font-bold text-white shadow-lg shadow-eco-green/25 transition-all duration-200 hover:bg-eco-green-dark hover:shadow-eco-green/40 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
+                >
+                  {signingIn ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Signing In...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="h-4 w-4" />
+                      Sign In to Dashboard
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </motion.form>
         </div>

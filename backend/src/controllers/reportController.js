@@ -1,7 +1,8 @@
-import { PrismaClient } from '../../generated/prisma/index.js';
+import prisma from '../lib/prisma.js';
 import { publishEvent } from '../lib/realtime.js';
+import { awardPoints } from '../lib/rewards.js';
+import { getSystemSettings } from '../lib/settings.js';
 
-const prisma = new PrismaClient();
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const IMPACT_COEFFICIENTS = {
@@ -44,6 +45,28 @@ function formatUserDisplayName(user) {
     return `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || null;
 }
 
+function getOrdinalLabel(rank) {
+    if (rank === 1) return '1st';
+    if (rank === 2) return '2nd';
+    if (rank === 3) return '3rd';
+    if (!Number.isFinite(rank)) return null;
+    return `${rank}th`;
+}
+
+async function getReporterPointMap() {
+    const settings = await getSystemSettings([
+        { key: 'points_1st', fallback: '15' },
+        { key: 'points_2nd', fallback: '10' },
+        { key: 'points_3rd', fallback: '5' },
+    ]);
+
+    return {
+        points_1st: parseInt(settings.points_1st, 10) || 15,
+        points_2nd: parseInt(settings.points_2nd, 10) || 10,
+        points_3rd: parseInt(settings.points_3rd, 10) || 5,
+    };
+}
+
 // Helper to find location ID by name
 async function getLocationIdByName(name) {
     if (!name) return null;
@@ -54,9 +77,9 @@ async function getLocationIdByName(name) {
 }
 
 // Helper to update bin status automatically
-async function updateBinStatusInternal(locationName, fillStatus, userId = null) {
+async function updateBinStatusInternal(locationName, fillStatus, userId = null, knownLocationId = null) {
     try {
-        const locationId = await getLocationIdByName(locationName);
+        const locationId = knownLocationId ?? await getLocationIdByName(locationName);
         if (!locationId) {
             console.log(`   ⚠️  Could not find location ID for "${locationName}", skipping bin status update`);
             return;
@@ -91,50 +114,50 @@ async function updateBinStatusInternal(locationName, fillStatus, userId = null) 
 }
 
 // Helper to recalculate bin status based on all active reports
-async function recalculateBinStatus(locationName, userId = null) {
+async function recalculateBinStatus(locationName, userId = null, knownLocationId = null) {
     try {
         console.log(`   🔍 Recalculating bin status for "${locationName}"...`);
-        
-        // 1. Check for any high-urgency WASTE reports that are VERIFIED or IN_PROGRESS
-        const highUrgencyCount = await prisma.report.count({
-            where: {
-                location: locationName,
-                type: 'WASTE',
-                urgency: 'high',
-                status: { in: ['VERIFIED', 'DISPATCHED', 'IN_PROGRESS'] }
-            }
-        });
+        const locationFilter = knownLocationId ? { locationId: knownLocationId } : { location: locationName };
+
+        // Run both counts in parallel
+        const [highUrgencyCount, activeCount] = await Promise.all([
+            prisma.report.count({
+                where: {
+                    ...locationFilter,
+                    type: 'WASTE',
+                    urgency: { key: 'high' },
+                    status: { in: ['VERIFIED', 'DISPATCHED', 'IN_PROGRESS'] }
+                }
+            }),
+            prisma.report.count({
+                where: {
+                    ...locationFilter,
+                    type: 'WASTE',
+                    status: { in: ['PENDING', 'VERIFIED', 'DISPATCHED', 'IN_PROGRESS'] }
+                }
+            })
+        ]);
 
         if (highUrgencyCount > 0) {
             console.log(`   🚨 ${highUrgencyCount} high-urgency waste reports found. Setting status to "full".`);
-            await updateBinStatusInternal(locationName, 'full', userId);
+            await updateBinStatusInternal(locationName, 'full', userId, knownLocationId);
             return;
         }
-
-        // 2. Check for waste report threshold (3+ active reports)
-        const activeCount = await prisma.report.count({
-            where: {
-                location: locationName,
-                type: 'WASTE',
-                status: { in: ['PENDING', 'VERIFIED', 'DISPATCHED', 'IN_PROGRESS'] }
-            }
-        });
 
         if (activeCount >= 3) {
             console.log(`   🚨 ${activeCount} active waste reports found (threshold 3+). Setting status to "full".`);
-            await updateBinStatusInternal(locationName, 'full', userId);
+            await updateBinStatusInternal(locationName, 'full', userId, knownLocationId);
             return;
         }
 
-        // 3. Otherwise set to "empty"
         console.log(`   ✅ Only ${activeCount} active waste reports. Setting status to "empty".`);
-        await updateBinStatusInternal(locationName, 'empty', userId);
+        await updateBinStatusInternal(locationName, 'empty', userId, knownLocationId);
     } catch (error) {
         console.error('   ❌ Error in recalculateBinStatus:', error);
     }
 }
 
-function emitReportEvent(event, report, extra = {}) {
+function internalEmitReportEvent(event, report, extra = {}) {
     publishEvent('reports', event, {
         reportId: report.id,
         status: report.status,
@@ -151,9 +174,36 @@ function emitReportEvent(event, report, extra = {}) {
 export const createReport = async (req, res) => {
     try {
         console.log('\n📝 createReport called');
-        const { location, notes, photoUrl, urgency, wasteType, category } = req.body;
+
+        // Ensure user is authenticated
+        if (!req.user || !req.user.userId) {
+            console.log('   ❌ User not authenticated in controller');
+            return res.status(401).json({
+                success: false,
+                message: 'Authentication required'
+            });
+        }
+
+        const {
+            location,
+            notes,
+            urgency,
+            wasteType,
+            category,
+            status: requestedStatus,
+            kilosCollected,
+            assetAction
+        } = req.body;
+
+        let photoUrl = req.body.photoUrl;
+        if (req.file) {
+            console.log('   📸 Image uploaded:', req.file.filename);
+            photoUrl = `/uploads/reports/${req.file.filename}`;
+        }
+
         const userId = req.user.userId;
-        console.log('   Data:', { location, urgency, wasteType, category, userId });
+        const userRole = req.user.role;
+        console.log('   Data:', { location, urgency, wasteType, category, userId, photoUrl, requestedStatus });
 
         // Validate required fields
         if (!location) {
@@ -164,49 +214,72 @@ export const createReport = async (req, res) => {
             });
         }
 
-        // Determine report type based on wasteType/category
-        console.log('   🔍 Fetching asset categories...');
-        const assetCategories = await prisma.assetCategory.findMany({
-            where: { enabled: true },
-            select: { name: true }
-        });
-        const assetCategoryNames = assetCategories.map(c => c.name.toLowerCase());
-        
-        const normalizedWasteType = (wasteType || 'general').toLowerCase();
+        // Resolve all metadata in parallel — assetCategories, urgency, wasteType, location
+        console.log('   🔍 Resolving report metadata in parallel...');
+        const urgencyKey = (urgency || 'normal').toLowerCase();
+        const wasteTypeKey = (wasteType || 'general').toLowerCase();
         const normalizedCategory = (category || '').toLowerCase();
+
+        const [assetCategories, urgencyLevel, wasteTypeRecord, locationRecord] = await Promise.all([
+            prisma.assetCategory.findMany({ where: { enabled: true }, select: { name: true } }),
+            prisma.urgencyLevel.findFirst({ where: { key: urgencyKey }, select: { id: true } }),
+            prisma.wasteType.findFirst({ where: { key: wasteTypeKey }, select: { id: true } }),
+            prisma.location.findFirst({ where: { name: location }, select: { id: true } }),
+        ]);
+
+        const assetCategoryNames = assetCategories.map(c => c.name.toLowerCase());
+        const normalizedWasteType = wasteTypeKey;
         const reportType = (assetCategoryNames.includes(normalizedWasteType) || assetCategoryNames.includes(normalizedCategory)) ? 'ASSET' : 'WASTE';
 
         // --- DUPLICATE CHECK ---
-        // Check if THIS user already has an active report for this location and type
-        const activeUserReport = await prisma.report.findFirst({
-            where: {
-                userId,
-                location,
-                type: reportType,
-                status: { in: ['PENDING', 'VERIFIED', 'DISPATCHED', 'IN_PROGRESS'] }
-            }
-        });
-
-        if (activeUserReport) {
-            console.log(`   ⚠️  User ${userId} already has an active ${reportType} report for "${location}"`);
-            return res.status(400).json({
-                success: false,
-                message: `Warning: You already have an active report for this ${reportType === 'WASTE' ? 'bin' : 'item'} at this location. Multiple reports from the same user are not allowed. Please wait for MRF staff to process it.`
+        // Only for PENDING reports from students/teachers (ignore for direct logs)
+        if (!requestedStatus || requestedStatus === 'PENDING') {
+            const activeUserReport = await prisma.report.findFirst({
+                where: {
+                    userId,
+                    ...(locationRecord?.id ? { locationId: locationRecord.id } : { location }),
+                    type: reportType,
+                    status: { in: ['PENDING', 'VERIFIED', 'DISPATCHED', 'IN_PROGRESS'] }
+                }
             });
+
+            if (activeUserReport) {
+                console.log(`   ⚠️  User ${userId} already has an active ${reportType} report for "${location}"`);
+                return res.status(400).json({
+                    success: false,
+                    message: `Warning: You already have an active report for this ${reportType === 'WASTE' ? 'bin' : 'item'} at this location. Multiple reports from the same user are not allowed. Please wait for MRF staff to process it.`
+                });
+            }
         }
+
+        // Allow MRF/Admin to set status and collection data directly
+        const status = (['ADMIN', 'MRF'].includes(userRole) && requestedStatus) ? requestedStatus : 'PENDING';
+
+        const urgencyId = urgencyLevel?.id;
+        if (!urgencyId) {
+            console.log(`   ❌ Unknown urgency level: "${urgencyKey}"`);
+            return res.status(400).json({ success: false, message: `Unknown urgency level: ${urgencyKey}` });
+        }
+
+        const wasteTypeId = reportType === 'WASTE' ? (wasteTypeRecord?.id ?? null) : null;
 
         // Create the report
         console.log('   💾 Saving report to database...');
         const report = await prisma.report.create({
             data: {
                 location,
+                locationId: locationRecord?.id ?? null,
                 notes: notes || '',
                 photoUrl: photoUrl || null,
-                urgency: urgency || 'normal',
-                wasteType: wasteType || 'general',
+                urgencyId,
+                wasteTypeId,
                 type: reportType,
                 userId,
-                status: 'PENDING'
+                status: status,
+                kilosCollected: (['ADMIN', 'MRF'].includes(userRole) && kilosCollected) ? parseFloat(kilosCollected) : null,
+                assetAction: (['ADMIN', 'MRF'].includes(userRole) && assetAction) ? assetAction : null,
+                collectionDate: (['ADMIN', 'MRF'].includes(userRole) && status === 'COMPLETED') ? new Date() : null,
+                assignedStaffId: (userRole === 'MRF' && status === 'COMPLETED') ? userId : null
             },
             include: {
                 user: {
@@ -219,24 +292,58 @@ export const createReport = async (req, res) => {
         });
         console.log('   ✅ Report saved with ID:', report.id);
 
+        // Stamp the reporter's position for WASTE reports so points stay aligned
+        let reportRank = null;
+        if (reportType === 'WASTE' && userRole === 'STUDENT') {
+            const sameBinReportCount = await prisma.report.count({
+                where: {
+                    locationId: report.locationId,
+                    type: 'WASTE',
+                    user: { role: 'STUDENT' },
+                    id: { lte: report.id }
+                }
+            });
+
+            reportRank = sameBinReportCount;
+            await prisma.report.update({
+                where: { id: report.id },
+                data: { reportRank }
+            });
+            report.reportRank = reportRank;
+        }
+
         // Update user's reports count
         await prisma.user.update({
             where: { id: parseInt(userId, 10) },
             data: { reports: { increment: 1 } }
         });
 
-        // Recalculate bin status automatically
-        await recalculateBinStatus(location, userId);
+        // Award points if directly completed (Quick Log)
+        // userRole is already in req.user — no extra DB round-trip needed
+        let pointsAwarded = 0;
+        if (status === 'COMPLETED' && userRole === 'STUDENT') {
+            pointsAwarded = parseInt((await getReporterPointMap()).points_1st, 10) || 15;
+            await awardPoints(parseInt(userId, 10), pointsAwarded);
+            console.log(`   ✅ Awarded ${pointsAwarded} points to student (Quick Log)`);
+        }
+
+        // Recalculate bin status — pass known locationId to avoid second DB lookup
+        await recalculateBinStatus(location, userId, locationRecord?.id ?? null);
 
         console.log('   📢 Emitting report event...');
-        emitReportEvent('report.created', report, {
+        internalEmitReportEvent('report.created', report, {
             actorRole: req.user.role,
+            pointsAwarded,
+            reportRank,
+            reportRankLabel: getOrdinalLabel(reportRank)
         });
 
         res.status(201).json({
             success: true,
-            message: 'Report submitted successfully. Awaiting admin verification for points.',
-            data: { report }
+            message: status === 'COMPLETED'
+                ? 'Report logged and completed successfully.'
+                : 'Report submitted successfully. Awaiting admin verification for points.',
+            data: { report, pointsAwarded, reportRank }
         });
     } catch (error) {
         console.error('❌ CreateReport error:', error);
@@ -251,41 +358,56 @@ export const createReport = async (req, res) => {
 export const getMyReports = async (req, res) => {
     try {
         const userId = req.user.userId;
-        const { status } = req.query;
+        const { status, page = 1, limit = 20 } = req.query;
+        const skip = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+        const take = parseInt(limit, 10);
 
         const where = { userId };
         if (status && status !== 'all') {
             where.status = status.toUpperCase();
         }
 
-        const reports = await prisma.report.findMany({
-            where,
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        username: true,
-                        firstName: true,
-                        lastName: true,
-                        role: true
+        const [reports, totalCount] = await Promise.all([
+            prisma.report.findMany({
+                where,
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            username: true,
+                            firstName: true,
+                            lastName: true,
+                            role: true
+                        }
+                    },
+                    assignedStaff: {
+                        select: {
+                            id: true,
+                            username: true,
+                            firstName: true,
+                            lastName: true,
+                            role: true
+                        }
                     }
                 },
-                assignedStaff: {
-                    select: {
-                        id: true,
-                        username: true,
-                        firstName: true,
-                        lastName: true,
-                        role: true
-                    }
-                }
-            },
-            orderBy: { createdAt: 'desc' }
-        });
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take
+            }),
+            prisma.report.count({ where })
+        ]);
 
         res.json({
             success: true,
-            data: { reports }
+            data: {
+                reports,
+                pagination: {
+                    total: totalCount,
+                    page: parseInt(page, 10),
+                    limit: take,
+                    pages: Math.ceil(totalCount / take)
+                }
+            }
         });
     } catch (error) {
         console.error('GetMyReports error:', error);
@@ -358,8 +480,8 @@ export const getAllReports = async (req, res) => {
                             firstName: true,
                             lastName: true,
                             role: true,
-                            studentId: true,
-                            course: true,
+                            lrn: true,
+                            yearLevel: true,
                             section: true
                         }
                     },
@@ -380,9 +502,15 @@ export const getAllReports = async (req, res) => {
             prisma.report.count({ where })
         ]);
 
+        reports.forEach((report) => {
+            if (report?.user?.lrn && !report.user.studentId) {
+                report.user.studentId = report.user.lrn;
+            }
+        });
+
         res.json({
             success: true,
-            data: { 
+            data: {
                 reports,
                 pagination: {
                     total: totalCount,
@@ -429,7 +557,7 @@ export const getReportById = async (req, res) => {
                         firstName: true,
                         lastName: true,
                         role: true,
-                        studentId: true
+                        lrn: true
                     }
                 },
                 assignedStaff: {
@@ -457,6 +585,10 @@ export const getReportById = async (req, res) => {
                 success: false,
                 message: 'Access denied'
             });
+        }
+
+        if (report?.user?.lrn && !report.user.studentId) {
+            report.user.studentId = report.user.lrn;
         }
 
         res.json({
@@ -503,6 +635,8 @@ export const updateReportStatus = async (req, res) => {
                 userId: true,
                 type: true,
                 location: true,
+                locationId: true,
+                reportRank: true,
                 user: { select: { role: true, username: true, points: true } }
             }
         });
@@ -547,59 +681,43 @@ export const updateReportStatus = async (req, res) => {
             console.log(`   ✅ Status change to VERIFIED detected - calculating points...`);
 
             if (currentReport.type === 'WASTE' && currentReport.user?.role === 'STUDENT') {
-                // For student bin (WASTE) reports: position-based points for same bin location
-                // Fetch points from SystemSettings
-                const pointsSettings = await prisma.systemSettings.findMany({
-                    where: {
-                        key: { in: ['points_1st', 'points_2nd', 'points_3rd'] }
-                    }
-                });
-
-                // Convert to map with defaults
-                const pointsMap = {
-                    points_1st: 15,
-                    points_2nd: 10,
-                    points_3rd: 5
-                };
-                pointsSettings.forEach(setting => {
-                    pointsMap[setting.key] = parseInt(setting.value, 10) || 0;
-                });
+                // For student bin (WASTE) reports: position-based points for the same bin location
+                const pointsMap = await getReporterPointMap();
 
                 console.log(`   Points config: 1st=${pointsMap.points_1st}, 2nd=${pointsMap.points_2nd}, 3rd=${pointsMap.points_3rd}`);
 
-                // Count how many reports at the same location were already verified
-                // (excluding this report)
-                const verifiedSameLocation = await prisma.report.count({
+                // Use the stored rank whenever possible; fall back to deterministic count for legacy rows
+                const verifiedSameLocation = currentReport.reportRank || await prisma.report.count({
                     where: {
-                        location: currentReport.location,
+                        ...(currentReport.locationId ? { locationId: currentReport.locationId } : { location: currentReport.location }),
                         type: 'WASTE',
-                        status: 'VERIFIED',
-                        id: { not: parseInt(id, 10) },
+                        id: { lte: parseInt(id, 10) },
                         user: { role: 'STUDENT' }
                     }
                 });
 
                 // Award points based on position (1st, 2nd, 3rd verified reporter)
-                if (verifiedSameLocation === 0) pointsAwarded = pointsMap.points_1st;
-                else if (verifiedSameLocation === 1) pointsAwarded = pointsMap.points_2nd;
-                else if (verifiedSameLocation === 2) pointsAwarded = pointsMap.points_3rd;
+                if (verifiedSameLocation === 1) pointsAwarded = pointsMap.points_1st;
+                else if (verifiedSameLocation === 2) pointsAwarded = pointsMap.points_2nd;
+                else if (verifiedSameLocation === 3) pointsAwarded = pointsMap.points_3rd;
                 else pointsAwarded = 0;
 
-                console.log(`   📊 Position at "${currentReport.location}": ${verifiedSameLocation + 1}${verifiedSameLocation === 0 ? 'st' : verifiedSameLocation === 1 ? 'nd' : verifiedSameLocation === 2 ? 'rd' : 'th'} verified (${verifiedSameLocation} before this)`);
+                console.log(`   📊 Position at "${currentReport.location}": ${getOrdinalLabel(verifiedSameLocation)} reporter`);
                 console.log(`   💰 Points to award: ${pointsAwarded}`);
-            } else {
-                // For non-student or asset reports, use provided points or default 15
+            } else if (currentReport.user?.role === 'STUDENT') {
+                // For student asset reports, use provided points or default 15
                 pointsAwarded = points || 15;
-                console.log(`   💰 Non-student/asset report - awarding: ${pointsAwarded} points`);
+                console.log(`   💰 student asset report - awarding: ${pointsAwarded} points`);
+            } else {
+                // Admin, MRF and TEACHERS do not earn points
+                pointsAwarded = 0;
+                console.log(`   💰 User is ${currentReport.user?.role} - no points awarded`);
             }
 
             if (pointsAwarded > 0) {
-                await prisma.user.update({
-                    where: { id: currentReport.userId },
-                    data: { points: { increment: pointsAwarded } }
-                });
+                await awardPoints(currentReport.userId, pointsAwarded);
                 console.log(`   ✅ Awarded ${pointsAwarded} points to user ${currentReport.userId} (${currentReport.user.username})`);
-                console.log(`   📈 New total: ${currentReport.user.points} + ${pointsAwarded} = ${currentReport.user.points + pointsAwarded} points\n`);
+                console.log(`   🏆 Point balances updated (Monthly, Quarterly, Lifetime)\n`);
             } else {
                 console.log(`   ℹ️  No points awarded (4th+ reporter at this location)\n`);
             }
@@ -613,10 +731,12 @@ export const updateReportStatus = async (req, res) => {
         console.log(`   🔄 Recalculating bin status for "${report.location}" after status update...`);
         await recalculateBinStatus(report.location, req.user.userId);
 
-        emitReportEvent('report.updated', report, {
+        internalEmitReportEvent('report.updated', report, {
             previousStatus: currentReport.status,
             actorRole: req.user.role,
             pointsAwarded,
+            reportRank: currentReport.reportRank,
+            reportRankLabel: getOrdinalLabel(currentReport.reportRank),
         });
 
         res.json({
@@ -659,7 +779,7 @@ export const deleteReport = async (req, res) => {
             });
         }
 
-        emitReportEvent('report.deleted', report, {
+        internalEmitReportEvent('report.deleted', report, {
             previousStatus: report.status,
             actorRole: req.user.role,
         });
@@ -776,7 +896,7 @@ export const dispatchStaff = async (req, res) => {
             }
         });
 
-        emitReportEvent('report.updated', report, {
+        internalEmitReportEvent('report.updated', report, {
             previousStatus: currentReport.status,
             actorRole: req.user.role,
             action: 'dispatch',
@@ -825,14 +945,15 @@ export const confirmCollection = async (req, res) => {
 
         // Validate required fields based on report type
         if (currentReport.type === 'WASTE') {
-            if (kilos === undefined || kilos === null) {
+            if (kilos === undefined || kilos === null || kilos === '') {
                 return res.status(400).json({
                     success: false,
                     message: 'Kilos collected is required for waste reports'
                 });
             }
 
-            if (typeof kilos !== 'number' || kilos < 0) {
+            const numericKilos = parseFloat(kilos);
+            if (isNaN(numericKilos) || numericKilos < 0) {
                 return res.status(400).json({
                     success: false,
                     message: 'Kilos must be a valid positive number'
@@ -877,7 +998,7 @@ export const confirmCollection = async (req, res) => {
         };
 
         if (currentReport.type === 'WASTE') {
-            updateData.kilosCollected = kilos;
+            updateData.kilosCollected = parseFloat(kilos);
         } else {
             updateData.assetAction = assetAction;
         }
@@ -907,11 +1028,11 @@ export const confirmCollection = async (req, res) => {
             }
         });
 
-        emitReportEvent('report.updated', report, {
+        internalEmitReportEvent('report.updated', report, {
             previousStatus: currentReport.status,
             actorRole: req.user.role,
             action: 'confirm_collection',
-            kilosCollected: kilos,
+            kilosCollected: updateData.kilosCollected,
             assetAction: assetAction,
         });
 
@@ -920,8 +1041,8 @@ export const confirmCollection = async (req, res) => {
 
         res.json({
             success: true,
-            message: currentReport.type === 'WASTE' 
-                ? `Collection confirmed: ${kilos} kg recorded`
+            message: currentReport.type === 'WASTE'
+                ? `Collection confirmed: ${updateData.kilosCollected} kg recorded`
                 : `Asset action confirmed: ${assetAction} selected`,
             data: { report }
         });
@@ -1013,16 +1134,22 @@ export const markAsDone = async (req, res) => {
         console.log(`   🚨 Report marked as done. Triggering automatic bin status recalculation.`);
         await recalculateBinStatus(report.location, req.user.userId);
 
-        // Award points to the reporter for completed collection
-        const pointsAwarded = 20; // Award 20 points for completed report
-        await prisma.user.update({
+        // Award points to the reporter for completed collection (only if not already awarded)
+        let pointsAwarded = 0;
+        const reporter = await prisma.user.findUnique({
             where: { id: currentReport.userId },
-            data: {
-                points: { increment: pointsAwarded }
-            }
+            select: { role: true }
         });
 
-        emitReportEvent('report.updated', report, {
+        if (reporter && reporter.role === 'STUDENT') {
+            pointsAwarded = 20;
+            await awardPoints(currentReport.userId, pointsAwarded);
+            console.log(`   ✅ Awarded ${pointsAwarded} points to student reporter (ID: ${currentReport.userId})`);
+        } else {
+            console.log(`   ℹ️  Reporter is ${reporter?.role || 'unknown'} - no points awarded for collection completion`);
+        }
+
+        internalEmitReportEvent('report.updated', report, {
             previousStatus: currentReport.status,
             actorRole: req.user.role,
             action: 'mark_done',
@@ -1080,11 +1207,12 @@ export const getImpactMetrics = async (req, res) => {
         // 3. Recycling Rate (waste reports not "general")
         const wasteAggregates = await Promise.all([
             prisma.report.count({ where: { type: 'WASTE' } }),
-            prisma.report.count({ 
-                where: { 
+            prisma.report.count({
+                where: {
                     type: 'WASTE',
-                    NOT: { wasteType: { equals: 'general', mode: 'insensitive' } }
-                } 
+                    wasteTypeId: { not: null },
+                    NOT: { wasteType: { key: { equals: 'general', mode: 'insensitive' } } }
+                }
             })
         ]);
         const totalWasteReports = wasteAggregates[0];
@@ -1106,7 +1234,7 @@ export const getImpactMetrics = async (req, res) => {
         // For now, let's just keep the simplified logic or use a recent sample if there are too many
         // Actually, we can fetch just the necessary fields for this
         const responseTimeData = await prisma.report.findMany({
-            where: { updatedAt: { not: null } },
+            // `updatedAt` is required in schema, so filtering against null is invalid.
             select: { createdAt: true, updatedAt: true },
             orderBy: { createdAt: 'desc' },
             take: 1000 // Limit to last 1000 reports for performance
@@ -1132,7 +1260,7 @@ export const getImpactMetrics = async (req, res) => {
         const sixMonthsAgo = new Date();
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
         const trendReports = await prisma.report.findMany({
-            where: { 
+            where: {
                 OR: [
                     { collectionDate: { gte: sixMonthsAgo } },
                     { updatedAt: { gte: sixMonthsAgo } },
@@ -1141,7 +1269,7 @@ export const getImpactMetrics = async (req, res) => {
             },
             select: {
                 type: true,
-                wasteType: true,
+                wasteType: { select: { key: true } },
                 kilosCollected: true,
                 createdAt: true,
                 updatedAt: true,
@@ -1158,7 +1286,7 @@ export const getImpactMetrics = async (req, res) => {
 
             if (report.type === 'WASTE') {
                 bucket.waste += weight;
-                if (report.wasteType && report.wasteType.toLowerCase() !== 'general') {
+                if (report.wasteType?.key && report.wasteType.key.toLowerCase() !== 'general') {
                     bucket.recycling += weight;
                 }
             }
@@ -1173,20 +1301,27 @@ export const getImpactMetrics = async (req, res) => {
 
         // 7. Breakdown (By waste type)
         const wasteBreakdown = await prisma.report.groupBy({
-            by: ['wasteType'],
+            by: ['wasteTypeId'],
             _sum: { kilosCollected: true },
             _count: { id: true },
             where: { type: 'WASTE' }
         });
 
+        // Look up wasteType keys for the grouped IDs
+        const groupedWasteTypeIds = [...new Set(wasteBreakdown.map(b => b.wasteTypeId).filter(Boolean))];
+        const wasteTypeRecords = groupedWasteTypeIds.length > 0
+            ? await prisma.wasteType.findMany({ where: { id: { in: groupedWasteTypeIds } }, select: { id: true, key: true } })
+            : [];
+        const wasteTypeById = Object.fromEntries(wasteTypeRecords.map(wt => [wt.id, wt.key]));
+
         const useKilosForBreakdown = wasteBreakdown.some((b) => b._sum.kilosCollected);
-        const totalBreakdownValue = wasteBreakdown.reduce((sum, b) => 
+        const totalBreakdownValue = wasteBreakdown.reduce((sum, b) =>
             sum + (useKilosForBreakdown ? (b._sum.kilosCollected || 0) : b._count.id), 0) || 1;
 
         const breakdownPalette = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#22c55e', '#0ea5e9'];
         const breakdown = wasteBreakdown
             .map((b) => ({
-                category: (b.wasteType || 'general').charAt(0).toUpperCase() + (b.wasteType || 'general').slice(1).toLowerCase(),
+                category: (() => { const k = b.wasteTypeId ? (wasteTypeById[b.wasteTypeId] || 'general') : 'general'; return k.charAt(0).toUpperCase() + k.slice(1).toLowerCase(); })(),
                 raw: useKilosForBreakdown ? (b._sum.kilosCollected || 0) : b._count.id
             }))
             .sort((a, b) => b.raw - a.raw)
@@ -1230,6 +1365,65 @@ export const getImpactMetrics = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'An error occurred while fetching impact metrics'
+        });
+    }
+};
+
+/**
+ * Public impact metrics for all students and teachers
+ * Aggregated data only - no staff performance or specific user data
+ */
+export const getPublicMetrics = async (req, res) => {
+    try {
+        console.log('🌱 Fetching public impact metrics...');
+
+        // 1. Total KG Recycled (all completed statuses)
+        const completedStatuses = ['COMPLETED', 'RESOLVED', 'COLLECTED'];
+        console.log('   🔍 Aggregating diverted stats...');
+        const divertedStats = await prisma.report.aggregate({
+            where: { status: { in: completedStatuses } },
+            _sum: { kilosCollected: true },
+            _count: { id: true }
+        });
+        const kgRecycled = roundNumber(divertedStats._sum.kilosCollected || 0, 1);
+        console.log(`   ✅ KG Recycled: ${kgRecycled}`);
+
+        // 2. Total Trees Saved (calculated from kg recycled)
+        const treesSaved = roundNumber(kgRecycled * IMPACT_COEFFICIENTS.treesPerKg, 1);
+
+        // 3. Global Campus Progress (recycling rate)
+        console.log('   🔍 Counting waste aggregates...');
+        const wasteAggregates = await Promise.all([
+            prisma.report.count({ where: { type: 'WASTE' } }),
+            prisma.report.count({
+                where: {
+                    type: 'WASTE',
+                    wasteTypeId: { not: null },
+                    NOT: { wasteType: { key: { equals: 'general', mode: 'insensitive' } } }
+                }
+            })
+        ]);
+        const totalWasteReports = wasteAggregates[0];
+        const recyclableReportsCount = wasteAggregates[1];
+        const campusProgress = totalWasteReports > 0
+            ? roundNumber((recyclableReportsCount / totalWasteReports) * 100, 1)
+            : 0;
+        console.log(`   ✅ Campus Progress: ${campusProgress}%`);
+
+        console.log('   ✨ Public metrics fetch complete.');
+        res.json({
+            success: true,
+            data: {
+                treesSaved,
+                kgRecycled,
+                campusProgress
+            }
+        });
+    } catch (error) {
+        console.error('❌ GetPublicMetrics error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'An error occurred while fetching public metrics'
         });
     }
 };

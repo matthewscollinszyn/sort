@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Trash2, Armchair, MapPin, User, Clock, AlertTriangle, Truck, GraduationCap, Building2, Image, X, CalendarCheck, Phone, Recycle, BookOpen, Hash, Camera } from 'lucide-react';
 import { BinReport, AssetReport, binStatusBadge, assetStatusBadge, BIN_STATUS } from '../types';
+import api from '../../../../services/api';
 
 interface ReportDetailsModalProps {
     report: BinReport | AssetReport;
@@ -117,7 +118,7 @@ export function ReportDetailsModal({ report, onClose, type = 'waste' }: ReportDe
                     {(binReport.photoUrl || report.image) ? (
                         <div className="relative rounded-xl overflow-hidden h-44 bg-slate-100">
                             <img
-                                src={binReport.photoUrl || report.image}
+                                src={api.getImageUrl(binReport.photoUrl || report.image) || ''}
                                 alt="Report photo"
                                 className="w-full h-full object-cover"
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}

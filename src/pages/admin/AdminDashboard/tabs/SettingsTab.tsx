@@ -180,7 +180,7 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [categoriesData, locationsData, itemsData, settingsData, wasteTypesData, urgencyLevelsData, assetConditionsData] = await Promise.all([
+            const [categoriesRes, locationsRes, itemsRes, settingsRes, wasteTypesRes, urgencyLevelsRes, assetConditionsRes] = await Promise.all([
                 api.getAssetCategories(),
                 api.getLocations(),
                 api.getItemPresets(),
@@ -189,16 +189,19 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
                 api.get('/settings/urgency-levels'),
                 api.get('/settings/asset-conditions'),
             ]);
-            setAssetCategories(categoriesData);
-            setLocations(locationsData);
-            setItemPresets(itemsData);
-            setWasteTypes(wasteTypesData);
-            setUrgencyLevels(urgencyLevelsData);
-            setAssetConditions(assetConditionsData);
-            if (settingsData?.data) {
-                setPointsSettings(settingsData.data);
+            
+            setAssetCategories(categoriesRes?.data || []);
+            setLocations(locationsRes?.data || []);
+            setItemPresets(itemsRes?.data || []);
+            setWasteTypes(wasteTypesRes?.data || []);
+            setUrgencyLevels(urgencyLevelsRes?.data || []);
+            setAssetConditions(assetConditionsRes?.data || []);
+            
+            if (settingsRes?.data) {
+                setPointsSettings(settingsRes.data);
             }
         } catch (err: any) {
+            console.error('Error loading settings:', err);
             setError(err.message || 'Failed to load settings');
         } finally {
             setLoading(false);
@@ -226,11 +229,13 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
         }
 
         try {
-            const newCategory = await api.createAssetCategory(categoryForm);
-            setAssetCategories([...assetCategories, newCategory]);
-            setCategoryForm({ name: '', label: '' });
-            setAdding(false);
-            showNotification('Category added successfully', 'success');
+            const response = await api.createAssetCategory(categoryForm);
+            if (response.success && response.data) {
+                setAssetCategories([...assetCategories, response.data]);
+                setCategoryForm({ name: '', label: '' });
+                setAdding(false);
+                showNotification('Category added successfully', 'success');
+            }
         } catch (err: any) {
             showNotification(err.message || 'Failed to add category', 'error');
         }
@@ -238,10 +243,12 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
 
     const handleUpdateCategory = async (id: string, updates: Partial<AssetCategory>) => {
         try {
-            const updated = await api.updateAssetCategory(id, updates);
-            setAssetCategories(assetCategories.map((c) => (c.id === id ? updated : c)));
-            setEditingId(null);
-            showNotification('Category updated successfully', 'success');
+            const response = await api.updateAssetCategory(id, updates);
+            if (response.success && response.data) {
+                setAssetCategories(assetCategories.map((c) => (c.id === id ? response.data : c)));
+                setEditingId(null);
+                showNotification('Category updated successfully', 'success');
+            }
         } catch (err: any) {
             showNotification(err.message || 'Failed to update category', 'error');
         }
@@ -275,11 +282,13 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
         }
 
         try {
-            const newItem = await api.createItemPreset(itemForm);
-            setItemPresets([...itemPresets, newItem]);
-            setItemForm({ name: '', icon: '📦', categoryId: '' });
-            setAdding(false);
-            showNotification('Item preset added successfully', 'success');
+            const response = await api.createItemPreset(itemForm);
+            if (response.success && response.data) {
+                setItemPresets([...itemPresets, response.data]);
+                setItemForm({ name: '', icon: '📦', categoryId: '' });
+                setAdding(false);
+                showNotification('Item preset added successfully', 'success');
+            }
         } catch (err: any) {
             showNotification(err.message || 'Failed to add item', 'error');
         }
@@ -287,10 +296,12 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
 
     const handleUpdateItem = async (id: string, updates: Partial<ItemPreset>) => {
         try {
-            const updated = await api.updateItemPreset(id, updates);
-            setItemPresets(itemPresets.map((i) => (i.id === id ? updated : i)));
-            setEditingId(null);
-            showNotification('Item preset updated successfully', 'success');
+            const response = await api.updateItemPreset(id, updates);
+            if (response.success && response.data) {
+                setItemPresets(itemPresets.map((i) => (i.id === id ? response.data : i)));
+                setEditingId(null);
+                showNotification('Item preset updated successfully', 'success');
+            }
         } catch (err: any) {
             showNotification(err.message || 'Failed to update item', 'error');
         }
@@ -324,11 +335,13 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
         }
 
         try {
-            const newLocation = await api.createLocation(locationForm);
-            setLocations([...locations, newLocation]);
-            setLocationForm({ code: '', name: '', type: 'BIN_LOCATION', building: '' });
-            setAdding(false);
-            showNotification('Location added successfully', 'success');
+            const response = await api.createLocation(locationForm);
+            if (response.success && response.data) {
+                setLocations([...locations, response.data]);
+                setLocationForm({ code: '', name: '', type: 'BIN_LOCATION', building: '' });
+                setAdding(false);
+                showNotification('Location added successfully', 'success');
+            }
         } catch (err: any) {
             showNotification(err.message || 'Failed to add location', 'error');
         }
@@ -336,10 +349,12 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
 
     const handleUpdateLocation = async (id: string, updates: Partial<Location>) => {
         try {
-            const updated = await api.updateLocation(id, updates);
-            setLocations(locations.map((l) => (l.id === id ? updated : l)));
-            setEditingId(null);
-            showNotification('Location updated successfully', 'success');
+            const response = await api.updateLocation(id, updates);
+            if (response.success && response.data) {
+                setLocations(locations.map((l) => (l.id === id ? response.data : l)));
+                setEditingId(null);
+                showNotification('Location updated successfully', 'success');
+            }
         } catch (err: any) {
             showNotification(err.message || 'Failed to update location', 'error');
         }
@@ -373,11 +388,13 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
             return;
         }
         try {
-            const created = await api.post('/settings/waste-types', wasteTypeForm);
-            setWasteTypes([...wasteTypes, created]);
-            setWasteTypeForm({ key: '', label: '', emoji: '♻️' });
-            setAdding(false);
-            showNotification('Waste type created successfully', 'success');
+            const response = await api.post('/settings/waste-types', wasteTypeForm);
+            if (response.success && response.data) {
+                setWasteTypes([...wasteTypes, response.data]);
+                setWasteTypeForm({ key: '', label: '', emoji: '♻️' });
+                setAdding(false);
+                showNotification('Waste type created successfully', 'success');
+            }
         } catch (err: any) {
             showNotification(err.message || 'Failed to create waste type', 'error');
         }
@@ -385,10 +402,12 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
 
     const handleUpdateWasteType = async (id: string, updates: Partial<WasteType>) => {
         try {
-            const updated = await api.put(`/settings/waste-types/${id}`, updates);
-            setWasteTypes(wasteTypes.map((w) => (w.id === id ? updated : w)));
-            setEditingId(null);
-            showNotification('Waste type updated successfully', 'success');
+            const response = await api.put(`/settings/waste-types/${id}`, updates);
+            if (response.success && response.data) {
+                setWasteTypes(wasteTypes.map((w) => (w.id === id ? response.data : w)));
+                setEditingId(null);
+                showNotification('Waste type updated successfully', 'success');
+            }
         } catch (err: any) {
             showNotification(err.message || 'Failed to update waste type', 'error');
         }
@@ -421,11 +440,13 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
             return;
         }
         try {
-            const created = await api.post('/settings/urgency-levels', urgencyLevelForm);
-            setUrgencyLevels([...urgencyLevels, created]);
-            setUrgencyLevelForm({ key: '', label: '', description: '', color: 'border-slate-400 bg-slate-100 text-slate-500' });
-            setAdding(false);
-            showNotification('Urgency level created successfully', 'success');
+            const response = await api.post('/settings/urgency-levels', urgencyLevelForm);
+            if (response.success && response.data) {
+                setUrgencyLevels([...urgencyLevels, response.data]);
+                setUrgencyLevelForm({ key: '', label: '', description: '', color: 'border-slate-400 bg-slate-100 text-slate-500' });
+                setAdding(false);
+                showNotification('Urgency level created successfully', 'success');
+            }
         } catch (err: any) {
             showNotification(err.message || 'Failed to create urgency level', 'error');
         }
@@ -433,10 +454,12 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
 
     const handleUpdateUrgencyLevel = async (id: string, updates: Partial<UrgencyLevel>) => {
         try {
-            const updated = await api.put(`/settings/urgency-levels/${id}`, updates);
-            setUrgencyLevels(urgencyLevels.map((u) => (u.id === id ? updated : u)));
-            setEditingId(null);
-            showNotification('Urgency level updated successfully', 'success');
+            const response = await api.put(`/settings/urgency-levels/${id}`, updates);
+            if (response.success && response.data) {
+                setUrgencyLevels(urgencyLevels.map((u) => (u.id === id ? response.data : u)));
+                setEditingId(null);
+                showNotification('Urgency level updated successfully', 'success');
+            }
         } catch (err: any) {
             showNotification(err.message || 'Failed to update urgency level', 'error');
         }
@@ -469,11 +492,13 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
             return;
         }
         try {
-            const created = await api.post('/settings/asset-conditions', assetConditionForm);
-            setAssetConditions([...assetConditions, created]);
-            setAssetConditionForm({ key: '', label: '', description: '' });
-            setAdding(false);
-            showNotification('Asset condition created successfully', 'success');
+            const response = await api.post('/settings/asset-conditions', assetConditionForm);
+            if (response.success && response.data) {
+                setAssetConditions([...assetConditions, response.data]);
+                setAssetConditionForm({ key: '', label: '', description: '' });
+                setAdding(false);
+                showNotification('Asset condition created successfully', 'success');
+            }
         } catch (err: any) {
             showNotification(err.message || 'Failed to create asset condition', 'error');
         }
@@ -481,10 +506,12 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
 
     const handleUpdateAssetCondition = async (id: string, updates: Partial<AssetCondition>) => {
         try {
-            const updated = await api.put(`/settings/asset-conditions/${id}`, updates);
-            setAssetConditions(assetConditions.map((a) => (a.id === id ? updated : a)));
-            setEditingId(null);
-            showNotification('Asset condition updated successfully', 'success');
+            const response = await api.put(`/settings/asset-conditions/${id}`, updates);
+            if (response.success && response.data) {
+                setAssetConditions(assetConditions.map((a) => (a.id === id ? response.data : a)));
+                setEditingId(null);
+                showNotification('Asset condition updated successfully', 'success');
+            }
         } catch (err: any) {
             showNotification(err.message || 'Failed to update asset condition', 'error');
         }
@@ -530,6 +557,7 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
     };
 
     const roomLocations = locations.filter((l) => l.type === 'ROOM_LOCATION');
+    const binLocations = locations.filter((l) => l.type === 'BIN_LOCATION');
 
     return (
         <div className="space-y-6">
@@ -1010,7 +1038,7 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
             )}
 
             {/* ═══════════════════════════════════════════════════════════ */}
-            {/* LOCATIONS SECTION - ROOM LOCATIONS ONLY */}
+            {/* LOCATIONS SECTION */}
             {/* ═══════════════════════════════════════════════════════════ */}
             {activeSection === 'locations' && (
                 <div className="space-y-6">
@@ -1018,13 +1046,33 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
                     <Card theme={theme}>
                         <div className="flex items-center justify-between mb-4">
                             <h3 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
-                                Add New Building/Room Location
+                                Add New Location
                             </h3>
                         </div>
                         <div className="space-y-3">
+                            <div className="flex gap-2 mb-2">
+                                <button
+                                    onClick={() => setLocationForm({ ...locationForm, type: 'BIN_LOCATION' })}
+                                    className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${locationForm.type === 'BIN_LOCATION'
+                                        ? 'bg-emerald-500 text-white border-emerald-500'
+                                        : theme === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-white border-slate-300 text-slate-600'
+                                        }`}
+                                >
+                                    Bin Location
+                                </button>
+                                <button
+                                    onClick={() => setLocationForm({ ...locationForm, type: 'ROOM_LOCATION' })}
+                                    className={`flex-1 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${locationForm.type === 'ROOM_LOCATION'
+                                        ? 'bg-blue-500 text-white border-blue-500'
+                                        : theme === 'dark' ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-white border-slate-300 text-slate-600'
+                                        }`}
+                                >
+                                    Room Location
+                                </button>
+                            </div>
                             <input
                                 type="text"
-                                placeholder="Location code (e.g., ROOM-13)"
+                                placeholder="Location code (e.g., LOC-01, ROOM-13)"
                                 value={locationForm.code}
                                 onChange={(e) => setLocationForm({ ...locationForm, code: e.target.value })}
                                 className={`w-full px-4 py-2 rounded-lg border ${theme === 'dark'
@@ -1042,16 +1090,18 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
                                     : 'bg-white border-slate-300 text-slate-900'
                                     }`}
                             />
-                            <input
-                                type="text"
-                                placeholder="Building name"
-                                value={locationForm.building}
-                                onChange={(e) => setLocationForm({ ...locationForm, building: e.target.value })}
-                                className={`w-full px-4 py-2 rounded-lg border ${theme === 'dark'
-                                    ? 'bg-slate-800 border-slate-700 text-white'
-                                    : 'bg-white border-slate-300 text-slate-900'
-                                    }`}
-                            />
+                            {locationForm.type === 'ROOM_LOCATION' && (
+                                <input
+                                    type="text"
+                                    placeholder="Building name"
+                                    value={locationForm.building || ''}
+                                    onChange={(e) => setLocationForm({ ...locationForm, building: e.target.value })}
+                                    className={`w-full px-4 py-2 rounded-lg border ${theme === 'dark'
+                                        ? 'bg-slate-800 border-slate-700 text-white'
+                                        : 'bg-white border-slate-300 text-slate-900'
+                                        }`}
+                                />
+                            )}
                             <button
                                 onClick={handleAddLocation}
                                 className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
@@ -1059,6 +1109,30 @@ export default function SettingsTab({ theme }: SettingsTabProps) {
                                 <Plus className="h-4 w-4" />
                                 Add Location
                             </button>
+                        </div>
+                    </Card>
+
+                    {/* Bin Locations */}
+                    <Card theme={theme}>
+                        <h3 className={`text-lg font-bold mb-4 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                            Bin Locations (Waste Reports)
+                        </h3>
+                        <div className="space-y-2">
+                            {binLocations.length === 0 ? (
+                                <p className={`text-center py-8 text-sm ${theme === 'dark' ? 'text-slate-600' : 'text-slate-400'}`}>
+                                    No bin locations yet
+                                </p>
+                            ) : (
+                                binLocations.map((location) => (
+                                    <LocationItem
+                                        key={location.id}
+                                        location={location}
+                                        theme={theme}
+                                        onUpdate={handleUpdateLocation}
+                                        onDelete={handleDeleteLocation}
+                                    />
+                                ))
+                            )}
                         </div>
                     </Card>
 

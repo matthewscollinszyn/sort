@@ -9,18 +9,43 @@ import {
     dispatchStaff,
     confirmCollection,
     markAsDone,
-    getImpactMetrics
+    getImpactMetrics,
+    getPublicMetrics
 } from '../controllers/reportController.js';
 import { authenticate, authorize } from '../middleware/auth.js';
 import { initializeSse, subscribeToEvents } from '../lib/realtime.js';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
 const router = express.Router();
+
+// Ensure uploads directory exists
+const uploadDir = 'uploads/reports';
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'report-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({ 
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit (frontend should compress it way more)
+});
 
 // All routes require authentication
 router.use(authenticate);
 
 // Student routes
-router.post('/', createReport);           // Create new report
+router.post('/', upload.single('photo'), createReport);           // Create new report with optional photo upload
 router.get('/my-reports', getMyReports);  // Get my reports (MUST come before /:id)
 router.get('/stream', (req, res) => {
     initializeSse(res);
@@ -39,6 +64,7 @@ router.get('/stream', (req, res) => {
 
 // Admin/MRF routes
 router.get('/impact-metrics', authorize('ADMIN', 'MRF'), getImpactMetrics);
+router.get('/public-metrics', getPublicMetrics); // Accessible to all authenticated users
 router.get('/', authorize('ADMIN', 'MRF'), getAllReports);  // Get all reports (admin/MRF only)
 
 // Shared routes (after specific routes)

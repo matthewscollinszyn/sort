@@ -27,7 +27,7 @@ export function Card({ children, className = '', glow = false, theme = 'dark', .
 
 /* ── Bin status helpers ── */
 export const binStatusLabel = {
-    full: { color: 'text-red-400', bg: 'bg-red-400/15', label: 'Full' },
+    full: { color: 'text-red-400', bg: 'bg-red-400/15', label: 'Bin Location Unavailable' },
     empty: { color: 'text-emerald-400', bg: 'bg-emerald-400/15', label: 'Available' },
 };
 

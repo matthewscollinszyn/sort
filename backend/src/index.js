@@ -7,6 +7,7 @@ import reportRoutes from './routes/reports.js';
 import settingsRoutes from './routes/settings.js';
 import mapRoutes from './routes/map.js';
 import { startCleanupTask } from './lib/cleanup.js';
+import { startRewardTasks } from './lib/rewards.js';
 
 dotenv.config();
 
@@ -27,6 +28,9 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' })); // Increase limit for base64 images
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Static files
+app.use('/uploads', express.static('uploads'));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -49,10 +53,12 @@ app.use((err, req, res, next) => {
     });
 });
 
-const server = app.listen(PORT, 'localhost', () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
     // Start automatic report cleanup task
     startCleanupTask();
+    // Start rewards tasks (monthly reset)
+    startRewardTasks();
 });
 
 server.on('error', (err) => {

@@ -1,0 +1,273 @@
+// SORT v2 - EcoLedger ERD
+// Paste this into https://dbdiagram.io/d
+
+Table users {
+  id          integer     [pk, increment]
+  username    varchar     [unique, not null]
+  password    varchar     [not null]
+  role        varchar     [not null, default: 'STUDENT', note: 'STUDENT | TEACHER | ADMIN | MRF']
+
+  // Profile
+  firstName   varchar
+  lastName    varchar
+  email       varchar     [unique]
+
+  // Student-specific
+  studentId   varchar     [unique]
+  lrn         varchar     [unique, note: 'Learner Reference Number']
+  course      varchar
+  section     varchar
+  department  varchar
+
+  // Gamification
+  points      integer     [not null, default: 0]
+  quarterlyPoints integer  [not null, default: 0]
+  lifetimePoints  integer  [not null, default: 0]
+  eligibleForCertificate boolean [not null, default: false]
+  lastAwardedQuarter integer
+  lastAwardedYear    integer
+  reports     integer     [not null, default: 0]
+
+  // Timestamps
+  createdAt   timestamp   [default: `now()`]
+  updatedAt   timestamp
+}
+
+Table point_history {
+  id        integer   [pk, increment]
+  userId    integer   [not null]
+  points    integer   [not null]
+  type      varchar   [not null, default: 'MONTHLY', note: 'MONTHLY | QUARTERLY']
+  month     integer
+  quarter   integer
+  year      integer   [not null]
+  createdAt timestamp [default: `now()`]
+
+  indexes {
+    userId
+    (month, year)
+    (quarter, year)
+    type
+  }
+}
+
+Table reports {
+  id              integer       [pk, increment]
+  location        varchar       [not null]
+  locationId      integer
+  notes           varchar
+  photoUrl        varchar
+  urgencyId       integer       [not null]
+  wasteTypeId     integer
+  assetCategoryId integer
+  itemPresetId    integer
+  type            varchar       [not null, default: 'WASTE', note: 'WASTE | ASSET']
+  status          varchar       [not null, default: 'PENDING', note: 'PENDING | VERIFIED | DISMISSED | DISPATCHED | IN_PROGRESS | COMPLETED | COLLECTED | RESOLVED']
+
+  // MRF Operations
+  assignedStaffId integer
+  kilosCollected  float
+  assetAction     varchar       [note: 'REPAIR | DISPOSE']
+  collectionDate  timestamp
+
+  // FK
+  userId          integer       [not null]
+
+  // Timestamps
+  createdAt       timestamp     [default: `now()`]
+  updatedAt       timestamp
+
+  indexes {
+    userId
+    status
+    assignedStaffId
+    locationId
+    urgencyId
+    wasteTypeId
+    assetCategoryId
+    itemPresetId
+    (type, status)
+  }
+}
+
+Table campus_news {
+  id            integer   [pk, increment]
+  tag           varchar   [not null]
+  date          varchar   [not null]
+  title         varchar   [not null]
+  desc          varchar   [not null]
+  publishedById integer
+
+  // Timestamps
+  createdAt     timestamp [default: `now()`]
+  updatedAt     timestamp
+
+  indexes {
+    createdAt
+    publishedById
+  }
+}
+
+Table asset_categories {
+  id        integer   [pk, increment]
+  name      varchar   [unique, not null]
+  label     varchar   [not null]
+  enabled   boolean   [not null, default: true]
+  sortOrder integer   [not null, default: 0]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp
+}
+
+Table item_presets {
+  id         integer   [pk, increment]
+  name       varchar   [not null]
+  icon       varchar   [not null, default: '📦']
+  categoryId integer   [not null]
+  enabled    boolean   [not null, default: true]
+  sortOrder  integer   [not null, default: 0]
+  createdAt  timestamp [default: `now()`]
+  updatedAt  timestamp
+
+  indexes {
+    (categoryId, enabled, sortOrder)
+  }
+}
+
+Table locations {
+  id        integer   [pk, increment]
+  code      varchar   [unique, not null, note: 'e.g. LOC-01, ROOM-01']
+  name      varchar   [not null]
+  type      varchar   [not null, note: 'BIN_LOCATION | ROOM_LOCATION']
+  building  varchar
+  enabled   boolean   [not null, default: true]
+  sortOrder integer   [not null, default: 0]
+  mapX      float
+  mapY      float
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp
+
+  indexes {
+    (type, enabled, sortOrder)
+  }
+}
+
+Table bin_statuses {
+  id          integer   [pk, increment]
+  locationId  integer   [unique, not null]
+  fillStatus  varchar   [not null, default: 'empty', note: 'empty | full']
+  lastUpdated timestamp [default: `now()`]
+  updatedBy   integer
+  createdAt   timestamp [default: `now()`]
+  updatedAt   timestamp
+
+  indexes {
+    fillStatus
+    updatedBy
+  }
+}
+
+Table campus_maps {
+  id           integer   [pk, increment]
+  imageData    text      [not null, note: 'Base64 encoded image']
+  imageName    varchar
+  imageSize    varchar
+  uploadedById integer
+  createdAt    timestamp [default: `now()`]
+  updatedAt    timestamp
+
+  indexes {
+    uploadedById
+  }
+}
+
+Table system_settings {
+  id          integer   [pk, increment]
+  key         varchar   [unique, not null, note: 'e.g. points_1st, points_2nd, points_gold_threshold, current_quarter_end']
+  value       varchar   [not null]
+  label       varchar
+  updatedById integer
+  createdAt   timestamp [default: `now()`]
+  updatedAt   timestamp
+
+  indexes {
+    updatedById
+  }
+}
+
+Table waste_types {
+  id        integer   [pk, increment]
+  key       varchar   [unique, not null, note: 'e.g. recyclable, biodegradable']
+  label     varchar   [not null]
+  emoji     varchar   [not null, default: '♻️']
+  enabled   boolean   [not null, default: true]
+  sortOrder integer   [not null, default: 0]
+  createdAt timestamp [default: `now()`]
+  updatedAt timestamp
+}
+
+Table urgency_levels {
+  id          integer   [pk, increment]
+  key         varchar   [unique, not null, note: 'e.g. low, normal, high']
+  label       varchar   [not null]
+  description varchar
+  color       varchar
+  enabled     boolean   [not null, default: true]
+  sortOrder   integer   [not null, default: 0]
+  createdAt   timestamp [default: `now()`]
+  updatedAt   timestamp
+}
+
+Table asset_conditions {
+  id          integer   [pk, increment]
+  key         varchar   [unique, not null, note: 'e.g. damaged, malfunctioning']
+  label       varchar   [not null]
+  description varchar
+  enabled     boolean   [not null, default: true]
+  sortOrder   integer   [not null, default: 0]
+  createdAt   timestamp [default: `now()`]
+  updatedAt   timestamp
+}
+
+// ─── Relationships ────────────────────────────────────────────────
+
+// A user has many point history records
+Ref: point_history.userId > users.id [delete: cascade]
+
+// A user submits many reports
+Ref: reports.userId > users.id [delete: cascade]
+
+// A staff member (user) can be assigned to many reports
+Ref: reports.assignedStaffId > users.id [delete: set null]
+
+// A report can be linked to one location
+Ref: reports.locationId > locations.id
+
+// A report has one urgency level
+Ref: reports.urgencyId > urgency_levels.id
+
+// A report has one waste type
+Ref: reports.wasteTypeId > waste_types.id
+
+// A report may reference one asset category
+Ref: reports.assetCategoryId > asset_categories.id
+
+// A report may reference one item preset
+Ref: reports.itemPresetId > item_presets.id
+
+// A user may upload many campus maps
+Ref: campus_maps.uploadedById > users.id [delete: set null]
+
+// A user may update many system settings
+Ref: system_settings.updatedById > users.id [delete: set null]
+
+// A user may update many bin status rows
+Ref: bin_statuses.updatedBy > users.id [delete: set null]
+
+// A user publishes campus news
+Ref: campus_news.publishedById > users.id [delete: set null]
+
+// An asset category has many item presets
+Ref: item_presets.categoryId > asset_categories.id [delete: cascade]
+
+// A location has one bin status
+Ref: bin_statuses.locationId - locations.id

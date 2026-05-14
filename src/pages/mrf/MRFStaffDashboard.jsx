@@ -5,6 +5,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
     Scale, Trash2, Recycle, Plus, Check, ChevronRight, ChevronDown,
     Leaf, Clock, TrendingUp, Calendar, Package, Truck, AlertCircle,
@@ -15,6 +16,8 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
+import ProfileModal from '../../components/ProfileModal';
+import UserMenu from '../../components/UserMenu';
 import api from '../../services/api';
 import realtimeEvents from '../../lib/realtimeEvents';
 import { useLocations } from '../../hooks/useSettings';
@@ -49,7 +52,20 @@ const TABS = [
 
 export default function MRFStaffDashboard() {
     const { theme, toggleTheme } = useTheme();
-    const { user, signout } = useAuth();
+    const { user, signout, loading } = useAuth();
+    const navigate = useNavigate();
+
+    // Redirect if not authenticated or not MRF staff
+    useEffect(() => {
+        if (!loading) {
+            if (!user) {
+                navigate('/mrf/signin');
+            } else if (user.role !== 'MRF') {
+                const ROLE_ROUTES = { STUDENT: '/student', TEACHER: '/teacher', ADMIN: '/admin' };
+                navigate(ROLE_ROUTES[user.role] || '/');
+            }
+        }
+    }, [user, loading, navigate]);
     const isDark = theme === 'dark';
     const [activeTab, setActiveTab] = useState('reports');
     const [assignedReports, setAssignedReports] = useState([]);
@@ -59,8 +75,26 @@ export default function MRFStaffDashboard() {
     const [toast, setToast] = useState(null);
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
-    // Load locations from API for InputTab
+    // Load locations, waste types, and urgency levels from API
     const { locations: binLocations } = useLocations('BIN_LOCATION');
+    const [wasteTypes, setWasteTypes] = useState([]);
+    const [urgencyLevels, setUrgencyLevels] = useState([]);
+
+    useEffect(() => {
+        const loadMetadata = async () => {
+            try {
+                const [wasteRes, urgencyRes] = await Promise.all([
+                    api.get('/settings/waste-types'),
+                    api.get('/settings/urgency-levels')
+                ]);
+                if (wasteRes.success) setWasteTypes(wasteRes.data || []);
+                if (urgencyRes.success) setUrgencyLevels(urgencyRes.data || []);
+            } catch (err) {
+                console.error('Failed to load metadata:', err);
+            }
+        };
+        loadMetadata();
+    }, []);
 
     const staffName = user?.firstName && user?.lastName
         ? `${user.firstName} ${user.lastName}`
@@ -147,11 +181,10 @@ export default function MRFStaffDashboard() {
             const reportData = {
                 location: newEntry.location,
                 wasteType: newEntry.wasteType,
-                notes: newEntry.notes,
-                urgency: 'normal',
+                notes: newEntry.notes || '',
+                urgency: newEntry.urgency || 'normal',
                 type: newEntry.type,
-                status: 'COMPLETED',
-                collectionDate: new Date()
+                status: 'COMPLETED'
             };
 
             if (newEntry.type === 'WASTE') {
@@ -160,14 +193,22 @@ export default function MRFStaffDashboard() {
                 reportData.assetAction = newEntry.assetAction;
             }
 
+            console.log('[MRF] Creating quick log:', reportData);
             const response = await api.createReport(reportData);
+            
             if (response.success) {
                 showToast(`Log recorded successfully!`, 'success');
                 fetchAssignedReports();
                 fetchHistory();
+                return true;
+            } else {
+                showToast(response.message || 'Failed to record entry', 'error');
+                return false;
             }
         } catch (error) {
-            showToast('Failed to record entry', 'error');
+            console.error('[MRF] Quick log error:', error);
+            showToast(error.message || 'Network error during log creation', 'error');
+            return false;
         }
     };
 
@@ -240,9 +281,7 @@ export default function MRFStaffDashboard() {
                             <button onClick={toggleTheme} className="p-2 rounded-xl bg-slate-100 dark:bg-white/5">
                                 {isDark ? <Sun className="h-5 w-5 text-amber-400" /> : <Moon className="h-5 w-5 text-slate-600" />}
                             </button>
-                            <button onClick={signout} className="p-2 rounded-xl bg-red-500/10 text-red-500">
-                                <LogOut className="h-5 w-5" />
-                            </button>
+                            <UserMenu theme={isDark ? 'dark' : 'light'} onTabChange={setActiveTab} />
                         </div>
                     </div>
                 </header>
@@ -263,6 +302,7 @@ export default function MRFStaffDashboard() {
                         <button onClick={toggleTheme} className={`p-2.5 rounded-xl border transition-all ${isDark ? 'bg-white/5 border-white/10' : 'bg-white border-slate-200'}`}>
                             {isDark ? <Sun className="h-5 w-5 text-amber-400" /> : <Moon className="h-5 w-5 text-slate-600" />}
                         </button>
+                        <UserMenu theme={isDark ? 'dark' : 'light'} onTabChange={setActiveTab} />
                     </div>
                 </header>
 
@@ -339,6 +379,8 @@ export default function MRFStaffDashboard() {
                                     onSubmit={handleNewCollection} 
                                     onToast={showToast} 
                                     binLocations={binLocations} 
+                                    wasteTypes={wasteTypes}
+                                    urgencyLevels={urgencyLevels}
                                 />
                             )}
                             {activeTab === 'history' && (
@@ -429,6 +471,7 @@ function ReportsTab({ isDark, reports, isLoading, onRefresh, onToast }) {
     const handleUpdateStatus = async (reportId, newStatus, kilos = null, action = null) => {
         setIsUpdating(true);
         try {
+            console.log(`[MRF] Updating report ${reportId} to status: ${newStatus}`, { kilos, action });
             let response;
             if (newStatus === 'IN_PROGRESS') {
                 response = await api.confirmCollection(reportId, kilos, action);
@@ -445,10 +488,11 @@ function ReportsTab({ isDark, reports, isLoading, onRefresh, onToast }) {
                 setSelectedReport(null);
                 setShowCollectionForm(false);
             } else {
-                onToast(response.message || 'Update failed', 'error');
+                showToast(response.message || 'Update failed', 'error');
             }
         } catch (error) {
-            onToast('Network error during update', 'error');
+            console.error('[MRF] Update status error:', error);
+            showToast(error.message || 'Network error during update', 'error');
         } finally {
             setIsUpdating(false);
         }
@@ -659,9 +703,10 @@ function ReportsTab({ isDark, reports, isLoading, onRefresh, onToast }) {
 /* ══════════════════════════════════════════════════════════
    INPUT TAB
    ══════════════════════════════════════════════════════════ */
-function InputTab({ isDark, onSubmit, onToast, binLocations = [] }) {
+function InputTab({ isDark, onSubmit, onToast, binLocations = [], wasteTypes = [], urgencyLevels = [] }) {
     const [type, setType] = useState('WASTE');
     const [wasteType, setWasteType] = useState('');
+    const [urgency, setUrgency] = useState('normal');
     const [weight, setWeight] = useState('');
     const [assetAction, setAssetAction] = useState('REPAIR');
     const [location, setLocation] = useState('');
@@ -676,8 +721,8 @@ function InputTab({ isDark, onSubmit, onToast, binLocations = [] }) {
     const handleFormSubmit = async (e) => {
         e.preventDefault();
         setIsSubmitting(true);
-        await onSubmit({ type, wasteType, weight, assetAction, location });
-        setWasteType(''); setWeight(''); setLocation(''); setLocationSearch('');
+        await onSubmit({ type, wasteType, weight, assetAction, location, urgency });
+        setWasteType(''); setWeight(''); setLocation(''); setLocationSearch(''); setUrgency('normal');
         setIsSubmitting(false);
     };
 
@@ -722,24 +767,59 @@ function InputTab({ isDark, onSubmit, onToast, binLocations = [] }) {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-4">{type === 'WASTE' ? 'Category' : 'Item Description'}</label>
-                        <input 
-                            type="text" value={wasteType} onChange={(e) => setWasteType(e.target.value)}
-                            placeholder={type === 'WASTE' ? "e.g. Mixed Plastic" : "e.g. Broken Desk"}
-                            className={`w-full px-6 py-4 rounded-2xl border-2 transition-all ${isDark ? 'bg-slate-900 border-white/5 focus:border-emerald-500' : 'bg-slate-50 border-slate-200 focus:border-emerald-500'} focus:outline-none font-bold`}
-                        />
+                        <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-4">{type === 'WASTE' ? 'Waste Category' : 'Item Description'}</label>
+                        {type === 'WASTE' && wasteTypes.length > 0 ? (
+                            <select 
+                                value={wasteType} onChange={(e) => setWasteType(e.target.value)}
+                                className={`w-full px-6 py-4 rounded-2xl border-2 transition-all ${isDark ? 'bg-slate-900 border-white/5 focus:border-emerald-500' : 'bg-slate-50 border-slate-200 focus:border-emerald-500'} focus:outline-none font-bold`}
+                            >
+                                <option value="">Select Category</option>
+                                {wasteTypes.map(w => (
+                                    <option key={w.id} value={w.label}>{w.emoji} {w.label}</option>
+                                ))}
+                            </select>
+                        ) : (
+                            <input 
+                                type="text" value={wasteType} onChange={(e) => setWasteType(e.target.value)}
+                                placeholder={type === 'WASTE' ? "e.g. Mixed Plastic" : "e.g. Broken Desk"}
+                                className={`w-full px-6 py-4 rounded-2xl border-2 transition-all ${isDark ? 'bg-slate-900 border-white/5 focus:border-emerald-500' : 'bg-slate-50 border-slate-200 focus:border-emerald-500'} focus:outline-none font-bold`}
+                            />
+                        )}
                     </div>
 
-                    {type === 'WASTE' ? (
-                        <div>
-                            <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-4 text-center">Weight (kg)</label>
-                            <input 
-                                type="number" value={weight} onChange={(e) => setWeight(e.target.value)}
-                                placeholder="0.00"
-                                className={`w-full text-5xl font-black text-center py-6 rounded-[2rem] border-2 transition-all ${isDark ? 'bg-slate-900 border-white/5 focus:border-emerald-500' : 'bg-slate-50 border-slate-200 focus:border-emerald-500'} focus:outline-none`}
-                            />
-                        </div>
-                    ) : (
+                    {type === 'WASTE' && (
+                        <>
+                            <div>
+                                <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-4">Urgency Level</label>
+                                <select 
+                                    value={urgency} onChange={(e) => setUrgency(e.target.value)}
+                                    className={`w-full px-6 py-4 rounded-2xl border-2 transition-all ${isDark ? 'bg-slate-900 border-white/5 focus:border-emerald-500' : 'bg-slate-50 border-slate-200 focus:border-emerald-500'} focus:outline-none font-bold`}
+                                >
+                                    {urgencyLevels.length > 0 ? (
+                                        urgencyLevels.map(u => (
+                                            <option key={u.id} value={u.key}>{u.label}</option>
+                                        ))
+                                    ) : (
+                                        <>
+                                            <option value="low">Low</option>
+                                            <option value="normal">Normal</option>
+                                            <option value="high">High</option>
+                                        </>
+                                    )}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-4 text-center">Weight (kg)</label>
+                                <input 
+                                    type="number" value={weight} onChange={(e) => setWeight(e.target.value)}
+                                    placeholder="0.00"
+                                    className={`w-full text-5xl font-black text-center py-6 rounded-[2rem] border-2 transition-all ${isDark ? 'bg-slate-900 border-white/5 focus:border-emerald-500' : 'bg-slate-50 border-slate-200 focus:border-emerald-500'} focus:outline-none`}
+                                />
+                            </div>
+                        </>
+                    )}
+
+                    {type === 'ASSET' && (
                         <div className="grid grid-cols-2 gap-4">
                             <button type="button" onClick={() => setAssetAction('REPAIR')} className={`p-6 rounded-3xl border-2 transition-all flex flex-col items-center gap-2 ${assetAction === 'REPAIR' ? 'border-blue-500 bg-blue-500/10' : 'border-transparent bg-slate-50 dark:bg-white/5'}`}>
                                 <RefreshCw className={`h-8 w-8 ${assetAction === 'REPAIR' ? 'text-blue-500' : 'text-slate-400'}`} />
@@ -766,9 +846,7 @@ function InputTab({ isDark, onSubmit, onToast, binLocations = [] }) {
     );
 }
 
-/* ══════════════════════════════════════════════════════════
-   HISTORY TAB
-   ══════════════════════════════════════════════════════════ */
+/* ── History Tab component... unchanged ── */
 function HistoryTab({ isDark, reports, isLoading, onRefresh }) {
     if (isLoading) return <div className="flex justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-emerald-500" /></div>;
 
@@ -814,9 +892,7 @@ function HistoryTab({ isDark, reports, isLoading, onRefresh }) {
     );
 }
 
-/* ══════════════════════════════════════════════════════════
-   STATS TAB
-   ══════════════════════════════════════════════════════════ */
+/* ── Stats Tab component... unchanged ── */
 function StatsTab({ isDark, reports }) {
     const totalWeight = reports.reduce((sum, r) => sum + (r.kilosCollected || 0), 0);
     const totalEntries = reports.length;

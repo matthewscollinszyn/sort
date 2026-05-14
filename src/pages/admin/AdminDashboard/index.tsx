@@ -25,7 +25,7 @@ import realtimeEvents from '../../../lib/realtimeEvents';
 // Import modular components
 import { ToastProvider, useToast } from './components/Toast';
 import { Card } from './components/Card';
-import { AdminMenu } from './components/AdminMenu';
+import UserMenu from '../../../components/UserMenu';
 import { DispatchModal, ConfirmationModal, ReportDetailsModal, AssetConfirmationModal } from './modals';
 import { ImpactAnalysisTab } from './tabs/ImpactAnalysisTab';
 import { OverviewTab } from './tabs/OverviewTab';
@@ -36,6 +36,7 @@ import { MapTab } from './tabs/MapTab';
 import { AdminLeaderboardTab } from './tabs/AdminLeaderboardTab';
 import { UsersTab } from './tabs/UsersTab';
 import { NewsTab } from './tabs/NewsTab';
+import AuditLogsTab from './tabs/AuditLogsTab';
 import {
     type BinReport,
     type AssetReport,
@@ -52,6 +53,7 @@ const TABS = [
     { id: 'users', label: 'Users', icon: Users },
     { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
     { id: 'news', label: 'Campus News', icon: Newspaper },
+    { id: 'audit', label: 'Audit Logs', icon: FileText },
     { id: 'settings', label: 'Settings', icon: Settings },
 ] as const;
 
@@ -67,7 +69,19 @@ const adminUser = {
    ═════════════════════════════════════════════════════════ */
 export default function AdminDashboard() {
     const navigate = useNavigate();
-    const { user, signout } = useAuth();
+    const { user, signout, loading } = useAuth();
+
+    // Redirect if not authenticated or not an admin
+    useEffect(() => {
+        if (!loading) {
+            if (!user) {
+                navigate('/admin/signin');
+            } else if (user.role !== 'ADMIN') {
+                const ROLE_ROUTES: Record<string, string> = { STUDENT: '/student', TEACHER: '/teacher', MRF: '/mrf' };
+                navigate(ROLE_ROUTES[user.role] || '/');
+            }
+        }
+    }, [user, loading, navigate]);
     const [activeTab, setActiveTab] = useState('overview');
     const [notifOpen, setNotifOpen] = useState(false);
 
@@ -303,7 +317,7 @@ export default function AdminDashboard() {
                                     theme="light"
                                 />
                             </div>
-                            <AdminMenu />
+                            <UserMenu onTabChange={setActiveTab} />
                         </div>
                     </div>
                 </motion.nav>
@@ -384,6 +398,9 @@ export default function AdminDashboard() {
                                 )}
                                 {activeTab === 'news' && (
                                     <NewsTab key="news" />
+                                )}
+                                {activeTab === 'audit' && (
+                                    <AuditLogsTab key="audit" />
                                 )}
                                 {activeTab === 'settings' && (
                                     <SettingsTab key="settings" theme="light" />

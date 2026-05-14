@@ -8,8 +8,35 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import api from '../../../services/api';
 import { Card, binStatusLabel } from './shared';
+import { compressImage } from '../../../lib/imageUtils';
 
 export default function ReportTab({ binLocations = [], roomLocations = [], wasteTypes = [], urgencyLevels = [] }) {
+    // Failsafe defaults if props are empty
+    const displayWasteTypes = (wasteTypes && wasteTypes.length > 0) 
+        ? wasteTypes.filter(w => w.enabled !== false) 
+        : [
+            { key: 'recyclable', label: 'Recyclable', emoji: '♻️', enabled: true },
+            { key: 'biodegradable', label: 'Biodegradable', emoji: '🌿', enabled: true },
+            { key: 'residual', label: 'Residual', emoji: '🗑️', enabled: true },
+            { key: 'hazardous', label: 'Hazardous', emoji: '☣️', enabled: true },
+        ];
+
+    const displayUrgencyLevels = (urgencyLevels && urgencyLevels.length > 0) 
+        ? urgencyLevels.filter(u => u.enabled !== false) 
+        : [
+            { key: 'low', label: 'Low', description: 'Non-critical issue', color: 'border-slate-400 bg-slate-100 text-slate-500', enabled: true },
+            { key: 'normal', label: 'Normal', description: 'Standard response', color: 'border-amber-500/30 bg-amber-400/10 text-amber-400', enabled: true },
+            { key: 'high', label: 'Urgent', description: 'Immediate attention', color: 'border-red-500/30 bg-red-400/10 text-red-400', enabled: true },
+        ];
+
+    const displayBinLocations = (binLocations && binLocations.length > 0) 
+        ? binLocations.filter(b => b.enabled !== false) 
+        : [
+            { id: 'f1', name: 'Cafeteria – Block A', status: 'empty' },
+            { id: 'f2', name: 'Library Entrance', status: 'empty' },
+            { id: 'f3', name: 'Student Center', status: 'empty' },
+        ];
+
     const { theme } = useTheme();
     const { user, refreshUser } = useAuth();
     const [photo, setPhoto] = useState(null);
@@ -27,7 +54,7 @@ export default function ReportTab({ binLocations = [], roomLocations = [], waste
     const canvasRef = useRef(null);
 
     const preview = photo ? URL.createObjectURL(photo) : null;
-    const filteredLocations = binLocations.filter(b =>
+    const filteredLocations = displayBinLocations.filter(b =>
         b.name.toLowerCase().includes(locationSearch.toLowerCase())
     );
 
@@ -42,15 +69,24 @@ export default function ReportTab({ binLocations = [], roomLocations = [], waste
         }
     };
 
-    const capturePhoto = () => {
+    const capturePhoto = async () => {
         if (canvasRef.current && videoRef.current) {
             canvasRef.current.width = videoRef.current.videoWidth;
             canvasRef.current.height = videoRef.current.videoHeight;
             canvasRef.current.getContext('2d').drawImage(videoRef.current, 0, 0);
-            canvasRef.current.toBlob((blob) => {
-                setPhoto(new File([blob], `bin-report-${Date.now()}.jpg`, { type: 'image/jpeg' }));
+            
+            canvasRef.current.toBlob(async (blob) => {
+                const rawFile = new File([blob], `bin-report-${Date.now()}.jpg`, { type: 'image/jpeg' });
+                try {
+                    // Compress image before setting it - Target ~50KB
+                    const compressed = await compressImage(rawFile, { maxWidth: 800, maxHeight: 800, quality: 0.6 });
+                    setPhoto(compressed);
+                } catch (err) {
+                    console.error('Compression failed:', err);
+                    setPhoto(rawFile); // Fallback to raw if compression fails
+                }
                 stopCamera();
-            });
+            }, 'image/jpeg', 0.8);
         }
     };
 
@@ -62,14 +98,19 @@ export default function ReportTab({ binLocations = [], roomLocations = [], waste
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!location) { setError('Please select a location'); return; }
+        if (!photo) { setError('Please take a photo as evidence'); return; }
+        
         setSubmitting(true);
         setError('');
         try {
-            const reportData = {
-                location, notes, urgency, wasteType,
-                photoUrl: photo ? 'photo-captured' : null,
-            };
-            const response = await api.createReport(reportData);
+            const formData = new FormData();
+            formData.append('location', location);
+            formData.append('notes', notes);
+            formData.append('urgency', urgency);
+            formData.append('wasteType', wasteType);
+            formData.append('photo', photo);
+
+            const response = await api.createReport(formData);
             if (response.success) {
                 await refreshUser();
                 setSubmitted(true);
@@ -204,16 +245,32 @@ export default function ReportTab({ binLocations = [], roomLocations = [], waste
                                 className={`flex-1 bg-transparent text-sm ${theme === 'dark' ? 'text-white placeholder:text-slate-600' : 'text-slate-900 placeholder:text-slate-400'} outline-none`} />
                         </div>
                         <div className={`mt-2 max-h-48 overflow-y-auto space-y-0.5 rounded-xl border ${theme === 'dark' ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-white'}`}>
-                            {filteredLocations.map((b) => (
-                                <button key={b.id} type="button" onClick={() => { setLocation(b.name); setLocationSearch(''); }}
-                                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left ${theme === 'dark' ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-100'} transition-colors`}>
-                                    <span className={`h-2 w-2 rounded-full ${b.status === 'full' ? 'bg-red-400' : 'bg-eco-green'}`} />
-                                    <span className={`flex-1 text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{b.name}</span>
-                                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${(binStatusLabel[b.status] || binStatusLabel.empty).bg} ${(binStatusLabel[b.status] || binStatusLabel.empty).color}`}>
-                                        {(binStatusLabel[b.status] || binStatusLabel.empty).label}
-                                    </span>
-                                </button>
-                            ))}
+                            {filteredLocations.map((b) => {
+                                const fillStatus = b.binStatus?.fillStatus || b.status || 'empty';
+                                const isFull = fillStatus === 'full';
+                                
+                                return (
+                                    <button key={b.id} type="button" 
+                                        onClick={() => { 
+                                            if (!isFull) {
+                                                setLocation(b.name); 
+                                                setLocationSearch(''); 
+                                            }
+                                        }}
+                                        disabled={isFull}
+                                        className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                                            isFull 
+                                                ? 'opacity-60 cursor-not-allowed bg-red-400/5' 
+                                                : theme === 'dark' ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-100'
+                                        }`}>
+                                        <span className={`h-2 w-2 rounded-full ${isFull ? 'bg-red-400' : 'bg-eco-green'}`} />
+                                        <span className={`flex-1 text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{b.name}</span>
+                                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${(binStatusLabel[fillStatus] || binStatusLabel.empty).bg} ${(binStatusLabel[fillStatus] || binStatusLabel.empty).color}`}>
+                                            {(binStatusLabel[fillStatus] || binStatusLabel.empty).label}
+                                        </span>
+                                    </button>
+                                );
+                            })}
                             {filteredLocations.length === 0 && (
                                 <p className="px-4 py-3 text-sm text-slate-600 text-center">No matching locations</p>
                             )}
@@ -237,7 +294,7 @@ export default function ReportTab({ binLocations = [], roomLocations = [], waste
                         <Trash2 className="h-4 w-4 text-slate-500" /> Waste Type
                     </h4>
                     <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                        {(wasteTypes || []).filter(w => w.enabled).map((w) => (
+                        {displayWasteTypes.filter(w => w.enabled).map((w) => (
                             <button key={w.key} type="button" onClick={() => setWasteType(w.key)}
                                 className={`flex items-center gap-1.5 sm:gap-2 rounded-xl border px-2 sm:px-3 py-2 sm:py-2.5 text-xs sm:text-sm font-medium transition-all ${wasteType === w.key
                                     ? 'border-eco-green/40 bg-eco-green/10 text-eco-green'
@@ -254,7 +311,7 @@ export default function ReportTab({ binLocations = [], roomLocations = [], waste
                         <AlertTriangle className="h-4 w-4 text-slate-500" /> Urgency Level
                     </h4>
                     <div className="space-y-1.5 sm:space-y-2">
-                        {(urgencyLevels || []).filter(u => u.enabled).map((u) => {
+                        {displayUrgencyLevels.filter(u => u.enabled).map((u) => {
                             const themeColor = theme === 'dark' ? 'border-slate-600 bg-slate-800/60 text-slate-400' : u.color || 'border-slate-400 bg-slate-100 text-slate-500';
                             return (
                                 <button key={u.key} type="button" onClick={() => setUrgency(u.key)}

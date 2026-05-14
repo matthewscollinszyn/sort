@@ -9,6 +9,7 @@ import {
 import { useTheme } from '../../../contexts/ThemeContext';
 import api from '../../../services/api';
 import { Card, fadeUp, binStatusLabel } from './shared';
+import { compressImage } from '../../../lib/imageUtils';
 
 const CATEGORY_DEFAULTS = {
     waste: { icon: Trash2, color: 'from-red-500 to-orange-500', desc: 'Full bins, overflowing waste' },
@@ -119,15 +120,24 @@ export default function ReportTab({
         }
     };
 
-    const capturePhoto = () => {
+    const capturePhoto = async () => {
         if (canvasRef.current && videoRef.current) {
             canvasRef.current.width = videoRef.current.videoWidth;
             canvasRef.current.height = videoRef.current.videoHeight;
             canvasRef.current.getContext('2d').drawImage(videoRef.current, 0, 0);
-            canvasRef.current.toBlob(blob => {
-                setPhoto(new File([blob], `report-${Date.now()}.jpg`, { type: 'image/jpeg' }));
+            
+            canvasRef.current.toBlob(async (blob) => {
+                const rawFile = new File([blob], `asset-report-${Date.now()}.jpg`, { type: 'image/jpeg' });
+                try {
+                    // Compress image before setting it - Target ~50KB
+                    const compressed = await compressImage(rawFile, { maxWidth: 800, maxHeight: 800, quality: 0.6 });
+                    setPhoto(compressed);
+                } catch (err) {
+                    console.error('Compression failed:', err);
+                    setPhoto(rawFile); // Fallback to raw if compression fails
+                }
                 stopCamera();
-            });
+            }, 'image/jpeg', 0.8);
         }
     };
 
@@ -140,6 +150,7 @@ export default function ReportTab({
         e.preventDefault();
         if (!location) { setError('Please select a location'); return; }
         if (!isWaste && !selectedItemId) { setError(`Please select a ${currentCategory?.label || 'item'}`); return; }
+        if (!photo) { setError('Please take a photo as evidence'); return; }
         
         setSubmitting(true);
         setError('');
@@ -149,15 +160,15 @@ export default function ReportTab({
                 ? notes
                 : `[${reportType.toUpperCase()}] ${itemName} - ${condition.toUpperCase()}${notes ? `: ${notes}` : ''}`;
             
-            const reportData = {
-                location,
-                notes: fullNotes,
-                urgency,
-                wasteType: isWaste ? wasteType : itemName,
-                category: reportType, // Send the category (e.g. 'furniture', 'electronics')
-                photoUrl: photo ? 'photo-captured' : null,
-            };
-            const response = await api.createReport(reportData);
+            const formData = new FormData();
+            formData.append('location', location);
+            formData.append('notes', fullNotes);
+            formData.append('urgency', urgency);
+            formData.append('wasteType', isWaste ? wasteType : itemName);
+            formData.append('category', reportType);
+            formData.append('photo', photo);
+
+            const response = await api.createReport(formData);
             if (response.success) {
                 if (onReportSubmitted) await onReportSubmitted();
                 setSubmitted(true);
@@ -343,20 +354,36 @@ export default function ReportTab({
                                 className={`flex-1 bg-transparent text-sm ${theme === 'dark' ? 'text-white placeholder:text-slate-600' : 'text-slate-900 placeholder:text-slate-400'} outline-none`} />
                         </div>
                         <div className={`mt-2 max-h-48 overflow-y-auto space-y-0.5 rounded-xl border ${theme === 'dark' ? 'border-slate-800 bg-slate-900/80' : 'border-slate-200 bg-white'}`}>
-                            {filteredLocations.map(loc => (
-                                <button key={loc.id} type="button" onClick={() => { setLocation(loc.name); setLocationSearch(''); }}
-                                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left ${theme === 'dark' ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-100'} transition-colors`}>
-                                    {isWaste
-                                        ? <span className={`h-2 w-2 rounded-full ${loc.status === 'full' ? 'bg-red-400' : 'bg-eco-green'}`} />
-                                        : <Building2 className="h-4 w-4 text-slate-500" />}
-                                    <span className={`flex-1 text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{loc.name}</span>
-                                    {isWaste && (
-                                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${(binStatusLabel[loc.status] || binStatusLabel.empty).bg} ${(binStatusLabel[loc.status] || binStatusLabel.empty).color}`}>
-                                            {(binStatusLabel[loc.status] || binStatusLabel.empty).label}
-                                        </span>
-                                    )}
-                                </button>
-                            ))}
+                            {filteredLocations.map(loc => {
+                                const fillStatus = loc.binStatus?.fillStatus || loc.status || 'empty';
+                                const isFull = isWaste && fillStatus === 'full';
+                                
+                                return (
+                                    <button key={loc.id} type="button" 
+                                        onClick={() => { 
+                                            if (!isFull) {
+                                                setLocation(loc.name); 
+                                                setLocationSearch(''); 
+                                            }
+                                        }}
+                                        disabled={isFull}
+                                        className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                                            isFull 
+                                                ? 'opacity-60 cursor-not-allowed bg-red-400/5' 
+                                                : theme === 'dark' ? 'hover:bg-white/[0.03]' : 'hover:bg-slate-100'
+                                        }`}>
+                                        {isWaste
+                                            ? <span className={`h-2 w-2 rounded-full ${isFull ? 'bg-red-400' : 'bg-eco-green'}`} />
+                                            : <Building2 className="h-4 w-4 text-slate-500" />}
+                                        <span className={`flex-1 text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>{loc.name}</span>
+                                        {isWaste && (
+                                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${(binStatusLabel[fillStatus] || binStatusLabel.empty).bg} ${(binStatusLabel[fillStatus] || binStatusLabel.empty).color}`}>
+                                                {(binStatusLabel[fillStatus] || binStatusLabel.empty).label}
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
                             {filteredLocations.length === 0 && <p className="px-4 py-3 text-sm text-slate-600 text-center">No matching locations</p>}
                         </div>
                     </div>

@@ -93,11 +93,19 @@ export function AuthProvider({ children }) {
     }, [navigate]);
 
     const signout = useCallback(() => {
+        const userRole = user?.role;
         realtimeEvents.disconnect();
         api.signout();
         setUser(null);
-        navigate('/');
-    }, [navigate]);
+        
+        if (userRole === 'ADMIN') {
+            navigate('/admin/signin');
+        } else if (userRole === 'MRF') {
+            navigate('/mrf/signin');
+        } else {
+            navigate('/');
+        }
+    }, [navigate, user]);
 
     const clearError = useCallback(() => {
         setError(null);

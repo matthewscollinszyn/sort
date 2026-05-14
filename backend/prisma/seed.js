@@ -5,23 +5,50 @@ const prisma = new PrismaClient();
 
 // RBAC Demo Accounts
 // Format: username / password
-// - student / student123
+// - student1 / student123
+// - student2 / student123
+// - student3 / student123
 // - teacher / teacher123
 // - ricomendoza / rico123 (MRF Staff)
 // - admin / admin123
 
 const demoUsers = [
     {
-        username: 'student',
+        username: 'student1',
         password: 'student123',
         role: 'STUDENT',
-        firstName: 'Student',
-        lastName: 'User',
-        email: 'student@school.edu',
-        studentId: 'LRN000000001',
-        course: '',
-        section: '',
-        department: '',
+        firstName: 'Ava',
+        lastName: 'Santos',
+        email: 'student1@school.edu',
+        lrn: 'LRN000000001',
+        yearLevel: 'Grade 11',
+        section: 'A',
+        points: 0,
+        reports: 0
+    },
+    {
+        username: 'student2',
+        password: 'student123',
+        role: 'STUDENT',
+        firstName: 'Noah',
+        lastName: 'Reyes',
+        email: 'student2@school.edu',
+        lrn: 'LRN000000002',
+        yearLevel: 'Grade 10',
+        section: 'B',
+        points: 0,
+        reports: 0
+    },
+    {
+        username: 'student3',
+        password: 'student123',
+        role: 'STUDENT',
+        firstName: 'Mia',
+        lastName: 'Cruz',
+        email: 'student3@school.edu',
+        lrn: 'LRN000000003',
+        yearLevel: 'Grade 12',
+        section: 'C',
         points: 0,
         reports: 0
     },
@@ -29,10 +56,11 @@ const demoUsers = [
         username: 'teacher',
         password: 'teacher123',
         role: 'TEACHER',
-        firstName: 'Teacher',
-        lastName: 'User',
+        firstName: 'Grace',
+        lastName: 'Velasco',
         email: 'teacher@school.edu',
-        department: '',
+        yearLevel: null,
+        section: null,
         points: 0,
         reports: 0
     },
@@ -43,7 +71,8 @@ const demoUsers = [
         firstName: 'Rico',
         lastName: 'Mendoza',
         email: 'rico.mendoza@school.edu',
-        department: 'Materials Recovery Facility',
+        yearLevel: null,
+        section: null,
         points: 0,
         reports: 0
     },
@@ -54,7 +83,8 @@ const demoUsers = [
         firstName: 'Admin',
         lastName: 'User',
         email: 'admin@school.edu',
-        department: 'Administration',
+        yearLevel: null,
+        section: null,
         points: 0,
         reports: 0
     }
@@ -81,6 +111,14 @@ const defaultNews = [
     },
 ];
 
+const defaultSystemSettings = [
+    { key: 'points_1st', value: '15', label: '1st Reporter Points' },
+    { key: 'points_2nd', value: '10', label: '2nd Reporter Points' },
+    { key: 'points_3rd', value: '5', label: '3rd Reporter Points' },
+    { key: 'points_gold_threshold', value: '300', label: 'Gold Certificate Quarterly Threshold' },
+    { key: 'current_quarter_end', value: null, label: 'Current Quarter End Date (YYYY-MM-DD)' },
+];
+
 async function main() {
     console.log('🌱 Seeding database with demo users...\n');
 
@@ -97,10 +135,9 @@ async function main() {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
-                studentId: user.studentId || null,
-                course: user.course || null,
+                lrn: user.lrn || null,
+                yearLevel: user.yearLevel || null,
                 section: user.section || null,
-                department: user.department || null,
                 points: user.points || 0,
                 reports: user.reports || 0
             },
@@ -111,10 +148,9 @@ async function main() {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 email: user.email,
-                studentId: user.studentId || null,
-                course: user.course || null,
+                lrn: user.lrn || null,
+                yearLevel: user.yearLevel || null,
                 section: user.section || null,
-                department: user.department || null,
                 points: user.points || 0,
                 reports: user.reports || 0
             }
@@ -138,6 +174,19 @@ async function main() {
     } else {
         console.log('📰 Skipped campus news (already exists)');
     }
+
+    // Seed system settings defaults so point values align with the UI and backend logic
+    for (const setting of defaultSystemSettings) {
+        await prisma.systemSettings.upsert({
+            where: { key: setting.key },
+            update: {
+                value: setting.value,
+                label: setting.label,
+            },
+            create: setting,
+        });
+    }
+    console.log('⚙️  Seeded system settings');
 
     // Upsert asset categories (safe, never deletes existing)
     const defaultCategories = [
@@ -218,16 +267,16 @@ async function main() {
     // Upsert locations (safe, never deletes existing)
     const defaultLocations = [
         // Bin locations for waste reports
-        { code: 'LOC-01', name: 'Cafeteria – Block A', type: 'BIN_LOCATION', sortOrder: 1 },
-        { code: 'LOC-02', name: 'Library Entrance', type: 'BIN_LOCATION', sortOrder: 2 },
-        { code: 'LOC-03', name: 'Gym Hallway', type: 'BIN_LOCATION', sortOrder: 3 },
-        { code: 'LOC-04', name: 'Engineering Bldg – 2F', type: 'BIN_LOCATION', sortOrder: 4 },
-        { code: 'LOC-05', name: 'Parking Lot B', type: 'BIN_LOCATION', sortOrder: 5 },
-        { code: 'LOC-06', name: 'Student Center', type: 'BIN_LOCATION', sortOrder: 6 },
-        { code: 'LOC-07', name: 'Science Hall – 1F', type: 'BIN_LOCATION', sortOrder: 7 },
-        { code: 'LOC-08', name: 'Admin Building Lobby', type: 'BIN_LOCATION', sortOrder: 8 },
-        { code: 'LOC-09', name: 'Arts Building – GF', type: 'BIN_LOCATION', sortOrder: 9 },
-        { code: 'LOC-10', name: 'Main Gate Area', type: 'BIN_LOCATION', sortOrder: 10 },
+        { code: 'LOC-01', name: 'Cafeteria – Block A', type: 'BIN_LOCATION', sortOrder: 1, mapX: 63.3, mapY: 40.0 },
+        { code: 'LOC-02', name: 'Library Entrance', type: 'BIN_LOCATION', sortOrder: 2, mapX: 44.1, mapY: 62.8 },
+        { code: 'LOC-03', name: 'Gym Hallway', type: 'BIN_LOCATION', sortOrder: 3, mapX: 39.2, mapY: 23.0 },
+        { code: 'LOC-04', name: 'Engineering Bldg – 2F', type: 'BIN_LOCATION', sortOrder: 4, mapX: 20.5, mapY: 35.2 },
+        { code: 'LOC-05', name: 'Parking Lot B', type: 'BIN_LOCATION', sortOrder: 5, mapX: 34.5, mapY: 71.3 },
+        { code: 'LOC-06', name: 'Student Center', type: 'BIN_LOCATION', sortOrder: 6, mapX: 55.0, mapY: 52.5 },
+        { code: 'LOC-07', name: 'Science Hall – 1F', type: 'BIN_LOCATION', sortOrder: 7, mapX: 28.4, mapY: 68.1 },
+        { code: 'LOC-08', name: 'Admin Building Lobby', type: 'BIN_LOCATION', sortOrder: 8, mapX: 50.2, mapY: 18.5 },
+        { code: 'LOC-09', name: 'Arts Building – GF', type: 'BIN_LOCATION', sortOrder: 9, mapX: 78.6, mapY: 25.4 },
+        { code: 'LOC-10', name: 'Main Gate Area', type: 'BIN_LOCATION', sortOrder: 10, mapX: 12.5, mapY: 82.0 },
         // Room locations for asset reports
         { code: 'ROOM-01', name: 'Room 101 – Science Hall', type: 'ROOM_LOCATION', building: 'Science Hall', sortOrder: 1 },
         { code: 'ROOM-02', name: 'Room 102 – Admin Building', type: 'ROOM_LOCATION', building: 'Admin Building', sortOrder: 2 },

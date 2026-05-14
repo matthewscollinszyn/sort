@@ -118,10 +118,18 @@ export function AuthProvider({ children }: AuthProviderProps): JSX.Element {
     }, [navigate]);
 
     const signout = useCallback((): void => {
+        const userRole = user?.role;
         api.signout();
         setUser(null);
-        navigate('/');
-    }, [navigate]);
+        
+        if (userRole === 'ADMIN') {
+            navigate('/admin/signin');
+        } else if (userRole === 'MRF') {
+            navigate('/mrf/signin');
+        } else {
+            navigate('/');
+        }
+    }, [navigate, user]);
 
     const clearError = useCallback((): void => {
         setError(null);

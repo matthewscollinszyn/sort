@@ -12,6 +12,7 @@ import { useCampusNews, TAG_COLOR_MAP } from '../../../hooks/useCampusNews';
 import { useNewsNotifications } from '../../../hooks/useNewsNotifications';
 import { fadeUp, stagger, WavyBg, Card } from './shared';
 import api from '../../../services/api';
+import PublicMetrics from '../../../components/PublicMetrics';
 
 const quickActions = [
     { label: 'Report Bin', desc: 'Snap a full bin', icon: Camera, color: 'from-red-500 to-orange-500', tab: 'report' },
@@ -63,7 +64,7 @@ const timelineMilestones = [
     { year: '2026', quarter: 'Q2', title: 'Zero-Waste Campus Goal', desc: 'New initiatives target 80% waste diversion by year-end. Community partnerships expand.', icon: Globe, color: 'from-pink-500 to-rose-500' },
 ];
 
-export default function HomeTab({ me, myReports, pendingCount, resolvedCount, goTab, showAllTips, setShowAllTips, liveLeaderboard, addNotification, userId, openCertificate }) {
+export default function HomeTab({ me, myReports, pendingCount, resolvedCount, goTab, showAllTips, setShowAllTips, liveLeaderboard, addNotification, userId, openCertificate, quarterlyImpact = 0 }) {
     const { theme } = useTheme();
     const { news: campusUpdates } = useCampusNews(true);
     useNewsNotifications(userId, campusUpdates, addNotification);
@@ -101,11 +102,11 @@ export default function HomeTab({ me, myReports, pendingCount, resolvedCount, go
                                 </p>
                                 {me.points >= 100 && (
                                     <button
-                                        onClick={openCertificate}
+                                        onClick={() => openCertificate('MONTHLY')}
                                         className="mt-2 inline-flex items-center gap-1 px-2 py-1 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-medium rounded-md transition-colors"
                                     >
                                         <Award className="h-3 w-3" />
-                                        View Certificate
+                                        Monthly Reward
                                     </button>
                                 )}
                             </div>
@@ -118,6 +119,67 @@ export default function HomeTab({ me, myReports, pendingCount, resolvedCount, go
                 </Card>
             </motion.section>
 
+            {/* ─────── QUARTERLY IMPACT TIER ─────── */}
+            <motion.section variants={fadeUp} initial="hidden" animate="visible" custom={1}>
+                <Card theme={theme} className="border-amber-500/20 bg-gradient-to-br from-amber-500/5 to-yellow-500/5 !p-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-2xl bg-amber-500/20 flex items-center justify-center shadow-lg shadow-amber-500/10">
+                                <Trophy className="h-6 w-6 text-amber-500" />
+                            </div>
+                            <div>
+                                <h3 className={`text-base font-bold ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>Quarterly Impact Tier</h3>
+                                <p className="text-xs text-slate-500">Reach 300 quarterly points for Gold Tier recognition</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {me.eligibleForCertificate && (
+                                <button
+                                    onClick={() => openCertificate('QUARTERLY')}
+                                    className="flex items-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all active:scale-95"
+                                >
+                                    <Award className="h-4 w-4" />
+                                    Download Impact Certificate
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                    
+                    <div className="mt-6">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Progress to Gold Tier</span>
+                            <span className={`text-xs font-black ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                                {me.quarterlyPoints || 0} / 300 PTS
+                            </span>
+                        </div>
+                        <div className={`h-3 w-full rounded-full overflow-hidden ${theme === 'dark' ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                            <motion.div 
+                                initial={{ width: 0 }} 
+                                animate={{ width: `${Math.min(((me.quarterlyPoints || 0) / 300) * 100, 100)}%` }}
+                                transition={{ duration: 1.5, ease: 'easeOut' }}
+                                className="h-full bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500"
+                            />
+                        </div>
+                        <div className="flex justify-between mt-2.5">
+                            <p className="text-[10px] text-slate-500 font-medium">Current impact: <span className="text-eco-green font-bold">{quarterlyImpact} kg</span> diverted</p>
+                            {(me.quarterlyPoints >= 300) && (
+                                <p className="text-[10px] text-amber-600 font-extrabold flex items-center gap-1 uppercase tracking-tighter">
+                                    <Sparkles className="h-3 w-3 animate-pulse" /> Gold Tier Achieved!
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </Card>
+            </motion.section>
+
+            {/* ─────── PUBLIC IMPACT METRICS ─────── */}
+            <motion.section variants={fadeUp} initial="hidden" animate="visible" custom={2}>
+                <h2 className={`text-lg font-bold mb-4 flex items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
+                    <Globe className="h-5 w-5 text-eco-green" /> Campus Impact
+                </h2>
+                <PublicMetrics theme={theme} />
+            </motion.section>
+
             {/* ─────── QUICK ACTIONS ─────── */}
             <motion.section variants={stagger} initial="hidden" animate="visible" className="relative overflow-hidden">
                 <WavyBg variant={2} theme={theme} />
@@ -126,7 +188,7 @@ export default function HomeTab({ me, myReports, pendingCount, resolvedCount, go
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                     {quickActions.map((a, i) => (
-                        <motion.button key={a.label} variants={fadeUp} custom={i}
+                        <motion.button key={a.label} variants={fadeUp} custom={i + 3}
                             onClick={() => goTab(a.tab)}
                             className={`group rounded-2xl border p-4 sm:p-5 text-left backdrop-blur-sm transition-all cursor-pointer hover:shadow-xl hover:shadow-eco-green/5 active:scale-[0.97] ${theme === 'dark'
                                 ? 'border-white/5 bg-slate-900/60 hover:border-eco-green/20 hover:bg-slate-900/90'
@@ -143,7 +205,7 @@ export default function HomeTab({ me, myReports, pendingCount, resolvedCount, go
             </motion.section>
 
             {/* ─────── STATS OVERVIEW ─────── */}
-            <motion.section variants={fadeUp} initial="hidden" animate="visible" custom={2}>
+            <motion.section variants={fadeUp} initial="hidden" animate="visible" custom={4}>
                 <h2 className={`text-lg font-bold mb-4 flex items-center gap-2 ${theme === 'dark' ? 'text-white' : 'text-slate-900'}`}>
                     <BarChart3 className="h-5 w-5 text-eco-green" /> My Stats
                 </h2>

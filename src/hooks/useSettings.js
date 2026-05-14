@@ -109,16 +109,16 @@ export function useLocations(type) {
             // Fallback to default locations if API fails
             if (type === 'BIN_LOCATION') {
                 setLocations([
-                    { id: '1', code: 'LOC-01', name: 'Cafeteria – Block A', type: 'BIN_LOCATION', enabled: true },
-                    { id: '2', code: 'LOC-02', name: 'Library Entrance', type: 'BIN_LOCATION', enabled: true },
-                    { id: '3', code: 'LOC-03', name: 'Gym Hallway', type: 'BIN_LOCATION', enabled: true },
-                    { id: '4', code: 'LOC-04', name: 'Engineering Bldg – 2F', type: 'BIN_LOCATION', enabled: true },
-                    { id: '5', code: 'LOC-05', name: 'Parking Lot B', type: 'BIN_LOCATION', enabled: true },
-                    { id: '6', code: 'LOC-06', name: 'Student Center', type: 'BIN_LOCATION', enabled: true },
-                    { id: '7', code: 'LOC-07', name: 'Science Hall – 1F', type: 'BIN_LOCATION', enabled: true },
-                    { id: '8', code: 'LOC-08', name: 'Admin Building Lobby', type: 'BIN_LOCATION', enabled: true },
-                    { id: '9', code: 'LOC-09', name: 'Arts Building – GF', type: 'BIN_LOCATION', enabled: true },
-                    { id: '10', code: 'LOC-10', name: 'Main Gate Area', type: 'BIN_LOCATION', enabled: true },
+                    { id: '1', code: 'LOC-01', name: 'Cafeteria – Block A', type: 'BIN_LOCATION', enabled: true, binStatus: { fillStatus: 'empty' } },
+                    { id: '2', code: 'LOC-02', name: 'Library Entrance', type: 'BIN_LOCATION', enabled: true, binStatus: { fillStatus: 'empty' } },
+                    { id: '3', code: 'LOC-03', name: 'Gym Hallway', type: 'BIN_LOCATION', enabled: true, binStatus: { fillStatus: 'full' } },
+                    { id: '4', code: 'LOC-04', name: 'Engineering Bldg – 2F', type: 'BIN_LOCATION', enabled: true, binStatus: { fillStatus: 'empty' } },
+                    { id: '5', code: 'LOC-05', name: 'Parking Lot B', type: 'BIN_LOCATION', enabled: true, binStatus: { fillStatus: 'empty' } },
+                    { id: '6', code: 'LOC-06', name: 'Student Center', type: 'BIN_LOCATION', enabled: true, binStatus: { fillStatus: 'empty' } },
+                    { id: '7', code: 'LOC-07', name: 'Science Hall – 1F', type: 'BIN_LOCATION', enabled: true, binStatus: { fillStatus: 'empty' } },
+                    { id: '8', code: 'LOC-08', name: 'Admin Building Lobby', type: 'BIN_LOCATION', enabled: true, binStatus: { fillStatus: 'empty' } },
+                    { id: '9', code: 'LOC-09', name: 'Arts Building – GF', type: 'BIN_LOCATION', enabled: true, binStatus: { fillStatus: 'empty' } },
+                    { id: '10', code: 'LOC-10', name: 'Main Gate Area', type: 'BIN_LOCATION', enabled: true, binStatus: { fillStatus: 'empty' } },
                 ]);
             } else if (type === 'ROOM_LOCATION') {
                 setLocations([
