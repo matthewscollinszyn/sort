@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 class ApiService {
     constructor() {
@@ -44,7 +44,7 @@ class ApiService {
     async request(endpoint, options = {}) {
         const url = `${this.baseUrl}${endpoint}`;
         const token = this.getToken();
-        
+
         const isFormData = options.body instanceof FormData;
         const hasBody = !!options.body;
 
@@ -63,7 +63,7 @@ class ApiService {
 
         try {
             const response = await fetch(url, config);
-            
+
             // Check if response is empty (204 No Content)
             if (response.status === 204) {
                 return { success: true, data: null };
@@ -183,7 +183,7 @@ class ApiService {
     async confirmCollection(reportId, kilosCollected, assetAction) {
         return this.request(`/reports/${reportId}/confirm-collection`, {
             method: 'POST',
-            body: { 
+            body: {
                 kilos: kilosCollected,
                 assetAction: assetAction
             },

@@ -1,4 +1,7 @@
 import { PrismaClient } from './generated/prisma/index.js';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const prisma = new PrismaClient();
 
@@ -89,11 +92,25 @@ async function awardMissingPoints() {
 
         // Award the points
         for (const update of updates) {
+            // Get current quarterly points to check threshold
+            const user = await prisma.user.findUnique({
+                where: { id: update.userId },
+                select: { quarterlyPoints: true, eligibleForCertificate: true }
+            });
+
+            const newQuarterlyPoints = (user?.quarterlyPoints || 0) + update.points;
+            const shouldAwardCertificate = user && !user.eligibleForCertificate && newQuarterlyPoints >= 300;
+
             await prisma.user.update({
                 where: { id: update.userId },
-                data: { points: { increment: update.points } }
+                data: { 
+                    points: { increment: update.points },
+                    quarterlyPoints: { increment: update.points },
+                    lifetimePoints: { increment: update.points },
+                    eligibleForCertificate: shouldAwardCertificate ? true : undefined
+                }
             });
-            console.log(`✅ Awarded ${update.points} points to user ${update.userId} for report #${update.reportId}`);
+            console.log(`✅ Awarded ${update.points} points to user ${update.userId} for report #${update.reportId}${shouldAwardCertificate ? ' (NOW ELIGIBLE FOR CERTIFICATE)' : ''}`);
         }
 
         console.log('\n✨ Done! Points have been awarded.\n');
